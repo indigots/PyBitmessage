@@ -285,6 +285,8 @@ class MyForm(QtGui.QMainWindow):
             _translate(
                 "MainWindow", "Special address behavior..."),
             self.on_action_SpecialAddressBehaviorDialog)
+        self.actionCreateChat = self.ui.addressContextMenuToolbar.addAction(
+            "Create chat at this address...", self.on_action_YourIdentitiesCreateChat)
         self.ui.tableWidgetYourIdentities.setContextMenuPolicy(
             QtCore.Qt.CustomContextMenu)
         self.connect(self.ui.tableWidgetYourIdentities, QtCore.SIGNAL(
@@ -299,6 +301,8 @@ class MyForm(QtGui.QMainWindow):
         self.popMenu.addAction(self.actionDisable)
         self.popMenu.addAction(self.actionSetAvatar)
         self.popMenu.addAction(self.actionSpecialAddressBehavior)
+        self.popMenu.addSeparator()
+        self.popMenu.addAction(self.actionCreateChat)
 
     def init_addressbook_popup_menu(self):
         # Popup menu for the Address Book page
@@ -3096,6 +3100,12 @@ class MyForm(QtGui.QMainWindow):
         with open(shared.appdata + 'keys.dat', 'wb') as configfile:
             shared.config.write(configfile)
         shared.reloadMyAddressHashes()
+
+    def on_action_YourIdentitiesCreateChat(self):
+        currentRow = self.ui.tableWidgetYourIdentities.currentRow()
+        addressAtCurrentRow = str(
+            self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
+        print "Would now create chan at address: " + addressAtCurrentRow
 
     def on_action_YourIdentitiesClipboard(self):
         currentRow = self.ui.tableWidgetYourIdentities.currentRow()
