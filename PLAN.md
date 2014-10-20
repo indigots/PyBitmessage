@@ -22,13 +22,15 @@ Bitmessage Moderated Chat
   * Pow to prevent brute forcing.
 3. The chat host sends back a control message to the users address. This message comes from the master address of the channel. It contains a standard status update that includes:
   * The open address of the channel including the private keys.
+  * The chat subject
+  * The passphrase
   * The users list:
     * Personal addresses
     * Their nicks
     * An indication of their status in the channel, has voice, is moderator etc.
-4. The user now listens using the open address for chat messages and status updates.
+4. The user now listens using the open address for chat messages and further status updates.
 5. When a chat message is recieved on the open address the user checks to see if the sender has a voice otherwise it is ignored.
-6. When a status update is recieved from the master address. The visible user list and their statuses is updated with the new status information. If a user was kicked then the open address of the channel may change.
+6. When a status update is recieved from the master address. The visible user list and their statuses is updated with the new status information. If a user was kicked then the open address of the channel may change. Status updates after an open address change are sent to each user individually to hide the new channel priv keys from the kicked user.
 
 ## Message Specifications
 ### Control messages
