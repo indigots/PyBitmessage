@@ -52,7 +52,7 @@ Bitmessage Moderated Chat
       * uchar nick
       * varint length of passphrase, public channels would have a phrase length of 0
       * uchar passphrase
-      * pow of bytes from address version through passphrase, use master address pow params with 28 days as the ttl var
+      * pow of bytes from address version through passphrase, use master address pow params with 28 days as the ttl var, if the passphrase is empty then just pad 8 bytes
     * set user status: type 2
       * ripe of user to modify
       * uint32 status bitfield bit 0 is kbanned, bit 32 is voice, bit 31 is moderator
@@ -91,13 +91,13 @@ Bitmessage Moderated Chat
   * signature of the message using the master address sign key
 
 ### Chat message
-* Sent from user to open address for all to recieve
+* Sent from user to open address for all to recieve, keep it small for fast pow
 * TTL: 1 min?
 * New object type: 6662
 * Current version: 1
 * Standard encrypted message
 * Unencrypted message data
-  * address_version through extra bytes of the senders address
+  * ripe of the senders address
   * ripe of the destination open address
   * varint message type: 
     * standard chat message is 1
