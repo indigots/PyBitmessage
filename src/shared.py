@@ -29,6 +29,8 @@ import shared
 #import helper_startup
 from helper_sql import *
 
+# for Chat
+import chat
 
 config = ConfigParser.SafeConfigParser()
 myECCryptorObjects = {}
@@ -858,5 +860,11 @@ def _checkAndShareBroadcastWithPeers(data):
     with shared.objectProcessorQueueSizeLock:
         shared.objectProcessorQueueSize += len(data)
         objectProcessorQueue.put((objectType,data))
+
+def createChat(inAddress):
+    shared.chatSession = chat.chatSession(inAddress, True, "")
+
+def joinChat(inHostAddress, inPersonalAddress):
+    shared.chatSession = chat.chatSession(inHostAddress, False, inPersonalAddress)
 
 from debug import logger

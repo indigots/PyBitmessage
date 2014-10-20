@@ -280,3 +280,15 @@ class addressGenerator(threading.Thread):
                 raise Exception(
                     "Error in the addressGenerator thread. Thread was given a command it could not understand: " + command)
 
+def createThrowawayAddress(inVersion, inStream):
+    privSigningKey = OpenSSL.rand(32)
+    pubSigningKey = highlevelcrypto.pointMult(privSigningKey)
+    privEncryptionKey = OpenSSL.rand(32)
+    pubEncryptionKey = highlevelcrypto.pointMult(privEncryptionKey)
+    ripe = hashlib.new('ripemd160')
+    sha = hashlib.new('sha512')
+    sha.update(
+        pubSigningKey + pubEncryptionKey)
+    ripe.update(sha.digest())
+    print 'Generated  new throwaway address with ripe digest:', ripe.digest().encode('hex')
+    return encodeAddress(inVersion, inStream, ripe.digest()),privSigningKey,pubSigningKey,privEncryptionKey,pubEncryptionKey

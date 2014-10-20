@@ -330,6 +330,8 @@ class MyForm(QtGui.QMainWindow):
         self.actionAddressBookDelete = self.ui.addressBookContextMenuToolbar.addAction(
             _translate(
                 "MainWindow", "Delete"), self.on_action_AddressBookDelete)
+        self.actionAddressBookJoinChat = self.ui.addressBookContextMenuToolbar.addAction(
+            "Join chat at this address", self.on_action_AddressBookJoinChat)
         self.ui.tableWidgetAddressBook.setContextMenuPolicy(
             QtCore.Qt.CustomContextMenu)
         self.connect(self.ui.tableWidgetAddressBook, QtCore.SIGNAL(
@@ -343,6 +345,8 @@ class MyForm(QtGui.QMainWindow):
         self.popMenuAddressBook.addSeparator()
         self.popMenuAddressBook.addAction(self.actionAddressBookNew)
         self.popMenuAddressBook.addAction(self.actionAddressBookDelete)
+        self.popMenuAddressBook.addSeparator()
+        self.popMenuAddressBook.addAction(self.actionAddressBookJoinChat)
 
     def init_subscriptions_popup_menu(self):
         # Popup menu for the Subscriptions page
@@ -629,6 +633,8 @@ class MyForm(QtGui.QMainWindow):
             "removeInboxRowByMsgid(PyQt_PyObject)"), self.removeInboxRowByMsgid)
         QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
             "displayAlert(PyQt_PyObject,PyQt_PyObject,PyQt_PyObject)"), self.displayAlert)
+        QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
+            "updateChatText(PyQt_PyObject)"), self.updateChatText)
         self.UISignalThread.start()
 
         # Below this point, it would be good if all of the necessary global data
@@ -2936,6 +2942,18 @@ class MyForm(QtGui.QMainWindow):
             self.addSubscription(addressAtCurrentRow, labelAtCurrentRow)
             self.ui.tabWidget.setCurrentIndex(4)
 
+    def on_action_AddressBookJoinChat(self):
+        listOfSelectedRows = {}
+        for i in range(len(self.ui.tableWidgetAddressBook.selectedIndexes())):
+            listOfSelectedRows[self.ui.tableWidgetAddressBook.selectedIndexes()[i].row()] = 0
+        # Join just the first address for now
+        addressAtCurrentRow = str(self.ui.tableWidgetAddressBook.item(0,1).text())
+        # Just grab the selected personal identity for now
+        currentRow = self.ui.tableWidgetYourIdentities.currentRow()
+        indentityAddressAtCurrentRow = str(self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
+        print 'UI joining chat at address:', addressAtCurrentRow
+        shared.joinChat(addressAtCurrentRow, indentityAddressAtCurrentRow)
+
     def on_context_menuAddressBook(self, point):
         self.popMenuAddressBook.exec_(
             self.ui.tableWidgetAddressBook.mapToGlobal(point))
@@ -3105,7 +3123,8 @@ class MyForm(QtGui.QMainWindow):
         currentRow = self.ui.tableWidgetYourIdentities.currentRow()
         addressAtCurrentRow = str(
             self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
-        print "Would now create chan at address: " + addressAtCurrentRow
+        print "Creating chan at address: " + addressAtCurrentRow
+        shared.createChat(addressAtCurrentRow)
 
     def on_action_YourIdentitiesClipboard(self):
         currentRow = self.ui.tableWidgetYourIdentities.currentRow()
@@ -3357,6 +3376,9 @@ class MyForm(QtGui.QMainWindow):
                 print 'Status bar:', data
 
         self.statusBar().showMessage(data)
+        
+    def updateChatText(self, data):
+        self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + data)
 
 
 class helpDialog(QtGui.QDialog):
@@ -3853,6 +3875,8 @@ class UISignaler(QThread):
             elif command == 'alert':
                 title, text, exitAfterUserClicksOk = data
                 self.emit(SIGNAL("displayAlert(PyQt_PyObject, PyQt_PyObject, PyQt_PyObject)"), title, text, exitAfterUserClicksOk)
+            elif command == 'updateChatText':
+                self.emit(SIGNAL("updateChatText(PyQt_PyObject)"), data)
             else:
                 sys.stderr.write(
                     'Command sent to UISignaler not recognized: %s\n' % command)

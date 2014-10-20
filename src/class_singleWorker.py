@@ -76,6 +76,8 @@ class singleWorker(threading.Thread):
                 self.sendOutOrStoreMyV3Pubkey(data)
             elif command == 'sendOutOrStoreMyV4Pubkey':
                 self.sendOutOrStoreMyV4Pubkey(data)
+            elif command == 'joinChat':
+                self.joinChat(data)
             else:
                 with shared.printLock:
                     sys.stderr.write(
@@ -1037,3 +1039,164 @@ class singleWorker(threading.Thread):
 
         payload = pack('>Q', nonce) + payload
         return shared.CreatePacket('object', payload)
+
+    def joinChat(self, chatSession):
+        logger.debug('Doing work to join chat at ' + chatSession.hostAddress)
+        shared.UISignalQueue.put(('updateChatText', 'Doing work to join chat at ' + chatSession.hostAddress))
+        if chatSession.hostAddressVersionNumber < 4:
+            logger.error('Chatting is only supported on v4+ addresses for now.')
+            return
+        toaddress = chatSession.hostAddress
+        toAddressVersionNumber = chatSession.hostAddressVersionNumber
+        toStreamNumber = chatSession.stream
+        toRipe = chatSession.hostAddressHash
+        
+        queryreturn = sqlQuery(
+            '''SELECT hash FROM pubkeys WHERE hash=? AND addressversion=?''', toRipe, toAddressVersionNumber)
+        if queryreturn != []:  # If we have the needed pubkey in the pubkey table already, 
+            # mark the pubkey as 'usedpersonally' so that we don't delete it later
+            sqlExecute(
+                '''UPDATE pubkeys SET usedpersonally='yes' WHERE hash=? and addressversion=?''',
+                toRipe,
+                toAddressVersionNumber)
+        else:
+            toTag = hashlib.sha512(hashlib.sha512(encodeVarint(toAddressVersionNumber)+encodeVarint(toStreamNumber)+toRipe).digest()).digest()[32:]
+            logger.debug('Tag for this address is ' + toTag.encode('hex'))
+            if toRipe in shared.neededPubkeys or toTag in shared.neededPubkeys:
+                logger.debug('Pubkey already requested.')
+                return
+            # We have not yet sent a request for the pubkey
+            needToRequestPubkey = True
+                
+            # The decryptAndCheckPubkeyPayload function expects that the shared.neededPubkeys
+            # dictionary already contains the toAddress and cryptor object associated with
+            # the tag for this toAddress.
+            doubleHashOfToAddressData = hashlib.sha512(hashlib.sha512(encodeVarint(
+                toAddressVersionNumber) + encodeVarint(toStreamNumber) + toRipe).digest()).digest()
+            privEncryptionKey = doubleHashOfToAddressData[:32] # The first half of the sha512 hash.
+            tag = doubleHashOfToAddressData[32:] # The second half of the sha512 hash.
+            shared.neededPubkeys[tag] = (toaddress, highlevelcrypto.makeCryptor(privEncryptionKey.encode('hex')))
+            
+            queryreturn = sqlQuery(
+                '''SELECT payload FROM inventory WHERE objecttype=1 and tag=? ''', toTag)
+            if queryreturn != []: # if there are any pubkeys in our inventory with the correct tag..
+                for row in queryreturn:
+                    payload, = row
+                    if shared.decryptAndCheckPubkeyPayload(payload, toaddress) == 'successful':
+                        needToRequestPubkey = False
+                        del shared.neededPubkeys[tag]
+                        # start again now that it should be available
+                        logger.debug('Pubkey found in SQL db.')
+                        self.joinChat(chatSession)
+
+            if needToRequestPubkey: # Obviously we had no success looking in the sql inventory. Let's look through the memory inventory.
+                with shared.inventoryLock:
+                    for hash, storedValue in shared.inventory.items():
+                        objectType, streamNumber, payload, expiresTime, tag = storedValue
+                        if objectType == 1 and tag == toTag:
+                            if shared.decryptAndCheckPubkeyPayload(payload, toaddress) == 'successful': #if valid, this function also puts it in the pubkeys table.
+                                needToRequestPubkey = False
+                                sqlExecute(
+                                    '''UPDATE sent SET status='doingmsgpow' WHERE toaddress=? AND (status='msgqueued' or status='awaitingpubkey' or status='doingpubkeypow')''',
+                                    toaddress)
+                                del shared.neededPubkeys[tag]
+                                # start again now that it should be available
+                                logger.debug('Pubkey found in memory items.')
+                                self.joinChat(chatSession)
+            if needToRequestPubkey:
+                sqlExecute(
+                    '''UPDATE sent SET status='doingpubkeypow' WHERE toaddress=? AND status='msgqueued' ''',
+                    toaddress)
+                shared.UISignalQueue.put(('updateSentItemStatusByHash', (
+                    toRipe, tr.translateText("MainWindow",'Sending a request for the recipient\'s encryption key.'))))
+                self.requestPubKey(toaddress)
+                logger.debug('We did not have the pubkey a request is being sent.')
+                shared.UISignalQueue.put(('updateChatText', 'We did not have the pubkey a request is being sent.'))
+                return
+
+
+        queryreturn = sqlQuery(
+            'SELECT transmitdata FROM pubkeys WHERE hash=? and addressversion=?',
+            chatSession.hostAddressHash,
+            chatSession.hostAddressVersionNumber)
+        for row in queryreturn:
+            pubkeyPayload, = row
+        readPosition = 0
+        pubkeyEmbeddedTime, = unpack(
+            '>Q', pubkeyPayload[readPosition:readPosition + 8])
+        readPosition += 8
+        readPosition += 1
+        streamNumber, streamNumberLength = decodeVarint(pubkeyPayload[readPosition:readPosition + 10])
+        readPosition += streamNumberLength
+        behaviorBitfield = pubkeyPayload[readPosition:readPosition + 4]
+        readPosition += 4
+        readPosition += 64
+        pubEncryptionKeyBase256 = pubkeyPayload[readPosition:readPosition + 64]
+        readPosition += 64
+        requiredAverageProofOfWorkNonceTrialsPerByte, varintLength = decodeVarint(pubkeyPayload[readPosition:readPosition + 10])
+        readPosition += varintLength
+        requiredPayloadLengthExtraBytes, varintLength = decodeVarint(pubkeyPayload[readPosition:readPosition + 10])
+        readPosition += varintLength
+
+        
+        logger.debug('Have the pubkey for this address.' + pubEncryptionKeyBase256.encode('hex'))
+        
+        # build the outgoing message
+        payload = ""
+        payload += encodeVarint(chatSession.myAddressVersionNumber)
+        payload += encodeVarint(chatSession.stream) # need to be on the same stream
+        payload += '\x00\x00\x00\x01'
+        privSigningKeyBase58 = shared.config.get(chatSession.myAddress, 'privsigningkey')
+        privEncryptionKeyBase58 = shared.config.get(chatSession.myAddress, 'privencryptionkey')
+        privSigningKeyHex = shared.decodeWalletImportFormat(privSigningKeyBase58).encode('hex')
+        privEncryptionKeyHex = shared.decodeWalletImportFormat(privEncryptionKeyBase58).encode('hex')
+        
+        pubSigningKey = highlevelcrypto.privToPub(privSigningKeyHex).decode('hex')
+        pubEncryptionKey = highlevelcrypto.privToPub(privEncryptionKeyHex).decode('hex')
+        payload += pubSigningKey[1:]
+        payload += pubEncryptionKey[1:]
+        payload += encodeVarint(shared.config.getint(chatSession.myAddress, 'noncetrialsperbyte'))
+        payload += encodeVarint(shared.config.getint(chatSession.myAddress, 'payloadlengthextrabytes'))
+        payload += toRipe
+        payload += '\x00\x00\x00\x01' # Control type 1, join
+        payload += encodeVarint(len(chatSession.nick))
+        payload += chatSession.nick
+        payload += encodeVarint(len(chatSession.passphrase))
+        payload += chatSession.passphrase
+        
+        # do special join pow
+        if chatSession.passphrase != '':
+            joinPowTTL = 28 * 24 * 60 * 60 # 28 days
+            target = 2 ** 64 / (requiredAverageProofOfWorkNonceTrialsPerByte*(len(payload) + 8 + requiredPayloadLengthExtraBytes + ((joinPowTTL*(len(payload)+8+requiredPayloadLengthExtraBytes))/(2 ** 16))))
+            initialHash = hashlib.sha512(payload).digest()
+            shared.UISignalQueue.put(('updateChatText', 'Doing proof of work for joining channel...'))
+            trialValue, nonce = proofofwork.run(target, initialHash)
+        
+            payload += pack('>Q', nonce)
+        else:
+            payload += '\x00\x00\x00\x00\x00\x00\x00\x00'
+        
+        # now encrypt
+        encrypted = highlevelcrypto.encrypt(payload,"04"+pubEncryptionKeyBase256.encode('hex'))
+        
+        # build the final message
+        TTL = 5 * 60 # 5 mins
+        embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
+        encryptedPayload = pack('>Q', embeddedTime)
+        encryptedPayload += '\x00\x00\x1A\x04' # object type: chat control message (6660)
+        encryptedPayload += '\x00\x00\x00\x01' # version 1 of a control message
+        encryptedPayload += encodeVarint(chatSession.stream) + encrypted
+        target = 2 ** 64 / (requiredAverageProofOfWorkNonceTrialsPerByte*(len(encryptedPayload) + 8 + requiredPayloadLengthExtraBytes + ((TTL*(len(encryptedPayload)+8+requiredPayloadLengthExtraBytes))/(2 ** 16))))
+        initialHash = hashlib.sha512(encryptedPayload).digest()
+        shared.UISignalQueue.put(('updateChatText', 'Doing proof of work for control message...'))
+        trialValue, nonce = proofofwork.run(target, initialHash)
+        encryptedPayload = pack('>Q', nonce) + encryptedPayload
+        
+        inventoryHash = calculateInventoryHash(encryptedPayload)
+        objectType = 6660
+        shared.inventory[inventoryHash] = (
+                objectType, toStreamNumber, encryptedPayload, embeddedTime, '')
+        shared.inventorySets[toStreamNumber].add(inventoryHash)
+        print 'Broadcasting inv for my chat control message:', inventoryHash.encode('hex')
+        shared.UISignalQueue.put(('updateChatText', 'Broadcasting inv for join control message: ' + inventoryHash.encode('hex')))
+        shared.broadcastToSendDataQueues((toStreamNumber, 'advertiseobject', inventoryHash))

@@ -2,8 +2,8 @@
 
 # Form implementation generated from reading ui file 'bitmessageui.ui'
 #
-# Created: Fri Aug 01 15:30:14 2014
-#      by: PyQt4 UI code generator 4.10.3
+# Created: Sun Oct 19 12:01:19 2014
+#      by: PyQt4 UI code generator 4.10.4
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -26,7 +26,7 @@ except AttributeError:
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName(_fromUtf8("MainWindow"))
-        MainWindow.resize(885, 580)
+        MainWindow.resize(888, 553)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(_fromUtf8(":/newPrefix/images/can-icon-24px.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         MainWindow.setWindowIcon(icon)
@@ -379,7 +379,7 @@ class Ui_MainWindow(object):
         self.networkstatus = QtGui.QWidget()
         self.networkstatus.setObjectName(_fromUtf8("networkstatus"))
         self.pushButtonStatusIcon = QtGui.QPushButton(self.networkstatus)
-        self.pushButtonStatusIcon.setGeometry(QtCore.QRect(680, 440, 21, 23))
+        self.pushButtonStatusIcon.setGeometry(QtCore.QRect(860, 450, 21, 23))
         self.pushButtonStatusIcon.setText(_fromUtf8(""))
         icon8 = QtGui.QIcon()
         icon8.addPixmap(QtGui.QPixmap(_fromUtf8(":/newPrefix/images/redicon.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
@@ -442,10 +442,29 @@ class Ui_MainWindow(object):
         icon9 = QtGui.QIcon()
         icon9.addPixmap(QtGui.QPixmap(_fromUtf8(":/newPrefix/images/networkstatus.png")), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.tabWidget.addTab(self.networkstatus, icon9, _fromUtf8(""))
+        self.chat = QtGui.QWidget()
+        self.chat.setObjectName(_fromUtf8("chat"))
+        self.chatText = QtGui.QTextEdit(self.chat)
+        self.chatText.setGeometry(QtCore.QRect(10, 30, 691, 401))
+        self.chatText.setReadOnly(True)
+        self.chatText.setObjectName(_fromUtf8("chatText"))
+        self.chatSendText = QtGui.QTextEdit(self.chat)
+        self.chatSendText.setGeometry(QtCore.QRect(10, 440, 811, 31))
+        self.chatSendText.setObjectName(_fromUtf8("chatSendText"))
+        self.sendChatButton = QtGui.QPushButton(self.chat)
+        self.sendChatButton.setGeometry(QtCore.QRect(824, 440, 51, 26))
+        self.sendChatButton.setObjectName(_fromUtf8("sendChatButton"))
+        self.chatSubjectLabel = QtGui.QLabel(self.chat)
+        self.chatSubjectLabel.setGeometry(QtCore.QRect(10, 10, 681, 16))
+        self.chatSubjectLabel.setObjectName(_fromUtf8("chatSubjectLabel"))
+        self.chatMembersList = QtGui.QListWidget(self.chat)
+        self.chatMembersList.setGeometry(QtCore.QRect(710, 30, 171, 401))
+        self.chatMembersList.setObjectName(_fromUtf8("chatMembersList"))
+        self.tabWidget.addTab(self.chat, _fromUtf8(""))
         self.gridLayout.addWidget(self.tabWidget, 0, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtGui.QMenuBar(MainWindow)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 885, 21))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 888, 25))
         self.menubar.setObjectName(_fromUtf8("menubar"))
         self.menuFile = QtGui.QMenu(self.menubar)
         self.menuFile.setObjectName(_fromUtf8("menuFile"))
@@ -507,7 +526,7 @@ class Ui_MainWindow(object):
         self.menubar.addAction(self.menuHelp.menuAction())
 
         self.retranslateUi(MainWindow)
-        self.tabWidget.setCurrentIndex(0)
+        self.tabWidget.setCurrentIndex(8)
         QtCore.QObject.connect(self.radioButtonSpecific, QtCore.SIGNAL(_fromUtf8("toggled(bool)")), self.lineEditTo.setEnabled)
         QtCore.QObject.connect(self.radioButtonSpecific, QtCore.SIGNAL(_fromUtf8("clicked(bool)")), self.labelSendBroadcastWarning.hide)
         QtCore.QObject.connect(self.radioButtonBroadcast, QtCore.SIGNAL(_fromUtf8("clicked()")), self.labelSendBroadcastWarning.show)
@@ -563,8 +582,8 @@ class Ui_MainWindow(object):
         self.textEditMessage.setHtml(_translate("MainWindow", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
-"</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>", None))
+"</style></head><body style=\" font-family:\'Sans\'; font-size:9pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:\'MS Shell Dlg 2\';\"><br /></p></body></html>", None))
         self.label.setText(_translate("MainWindow", "To:", None))
         self.label_2.setText(_translate("MainWindow", "From:", None))
         self.radioButtonBroadcast.setText(_translate("MainWindow", "Broadcast to everyone who is subscribed to your address", None))
@@ -634,6 +653,9 @@ class Ui_MainWindow(object):
         self.labelBytesRecvCount.setText(_translate("MainWindow", "Down: 0 KB/s", None))
         self.labelBytesSentCount.setText(_translate("MainWindow", "Up: 0 KB/s", None))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.networkstatus), _translate("MainWindow", "Network Status", None))
+        self.sendChatButton.setText(_translate("MainWindow", "Send", None))
+        self.chatSubjectLabel.setText(_translate("MainWindow", "Chat Subject", None))
+        self.tabWidget.setTabText(self.tabWidget.indexOf(self.chat), _translate("MainWindow", "Chat", None))
         self.menuFile.setTitle(_translate("MainWindow", "File", None))
         self.menuSettings.setTitle(_translate("MainWindow", "Settings", None))
         self.menuHelp.setTitle(_translate("MainWindow", "Help", None))
