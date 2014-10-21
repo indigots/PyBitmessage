@@ -1203,11 +1203,10 @@ class singleWorker(threading.Thread):
         
         inventoryHash = calculateInventoryHash(encryptedPayload)
         objectType = 6660
-        shared.checkAndShareObjectWithPeers(encryptedPayload)
-        #shared.inventory[inventoryHash] = (
-        #        objectType, toStreamNumber, encryptedPayload, embeddedTime, '')
-        #shared.inventorySets[toStreamNumber].add(inventoryHash)
+        shared.inventory[inventoryHash] = (
+                objectType, toStreamNumber, encryptedPayload, embeddedTime, '')
+        shared.inventorySets[toStreamNumber].add(inventoryHash)
         print 'Broadcasting inv for my chat control message:', inventoryHash.encode('hex')
         shared.UISignalQueue.put(('updateChatText', 'Broadcasting inv for join control message: ' + inventoryHash.encode('hex')))
         shared.UISignalQueue.put(('updateChatText', 'Start: ' + encryptedPayload[:24].encode('hex')))
-        #shared.broadcastToSendDataQueues((toStreamNumber, 'advertiseobject', inventoryHash))
+        shared.broadcastToSendDataQueues((toStreamNumber, 'advertiseobject', inventoryHash))

@@ -637,9 +637,9 @@ def checkAndShareObjectWithPeers(data):
         elif intObjectType == 3:
             _checkAndShareBroadcastWithPeers(data)
             return 0.6
-        #elif intObjectType == 6660:
-        #    _checkAndShareChatControlWithPeers(data)
-        #    return 0.6
+        elif intObjectType == 6660:
+            _checkAndShareChatControlWithPeers(data)
+            return 0.6
         else:
             _checkAndShareUndefinedObjectWithPeers(data)
             return 0.6
