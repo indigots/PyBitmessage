@@ -61,6 +61,8 @@ class objectProcessor(threading.Thread):
                     self.processmsg(data)
                 elif objectType == 3: #broadcast
                     self.processbroadcast(data)
+                elif objectType == 6660: #chat control
+                    self.processchatcontrol(data)
                 elif objectType == 'checkShutdownVariable': # is more of a command, not an object type. Is used to get this thread past the queue.get() so that it will check the shutdown variable.
                     pass
                 else:
@@ -980,6 +982,105 @@ class objectProcessor(threading.Thread):
 
             # Display timing data
             logger.debug('Time spent processing this interesting broadcast: %s' % (time.time() - messageProcessingStartTime,))
+    
+    def processchatcontrol(self, data):
+        if shared.chatSession is None or not shared.chatSession.hosting:
+            logger.debug('Got chat message but we do not have a chat session or are not hosting.')
+            return
+        messageProcessingStartTime = time.time()
+        shared.numberOfMessagesProcessed += 1
+        shared.UISignalQueue.put((
+            'updateNumberOfMessagesProcessed', 'no data'))
+        version = unpack('>I', data[20:24])
+        readPosition = 24 # bypass the nonce, time, and object type, version
+        streamNumberAsClaimedByMsg, streamNumberAsClaimedByMsgLength = decodeVarint(
+            data[readPosition:readPosition + 9])
+        readPosition += streamNumberAsClaimedByMsgLength
+        headerEnd = readPosition
+        canDecrypt = False
+        try:
+            decryptedData = shared.chatSession.hostAddressCryptor.decrypt(data[readPosition:])
+            toRipe = shared.chatSession.hostAddressHash
+            canDecrypt = True
+        except Exception as err:
+            pass
+        if not canDecrypt:
+            logger.debug('Chat control message was not bound for me.')
+            return
+        sendersAddressVersionNumber, sendersAddressVersionNumberLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += sendersAddressVersionNumberLength
+        if sendersAddressVersionNumber < 4:
+            logger.info('Sender\'s address version number %s not yet supported. Ignoring message.' % sendersAddressVersionNumber)  
+            return
+        if len(decryptedData) < 170:
+            logger.info('Length of the unencrypted data is unreasonably short. Sanity check failed. Ignoring message.')
+            return
+        sendersStreamNumber, sendersStreamNumberLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += sendersStreamNumberLength
+        if sendersStreamNumber == 0:
+            logger.info('sender\'s stream number is 0. Ignoring message.')
+            return
+        behaviorBitfield = decryptedData[readPosition:readPosition + 4]
+        readPosition += 4
+        pubSigningKey = '\x04' + decryptedData[
+            readPosition:readPosition + 64]
+        readPosition += 64
+        pubEncryptionKey = '\x04' + decryptedData[
+            readPosition:readPosition + 64]
+        readPosition += 64
+        requiredAverageProofOfWorkNonceTrialsPerByte, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        logger.info('sender\'s requiredAverageProofOfWorkNonceTrialsPerByte is %s' % requiredAverageProofOfWorkNonceTrialsPerByte)
+        requiredPayloadLengthExtraBytes, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        if toRipe != decryptedData[readPosition:readPosition + 20]:
+            logger.info('The original sender of this message did not send it to you. \
+                Someone is attempting a Surreptitious Forwarding Attack.\n\
+                See: http://world.std.com/~dtd/sign_encrypt/sign_encrypt7.html \n\
+                your toRipe: %s\n\
+                embedded destination toRipe: %s' % 
+                (toRipe.encode('hex'), decryptedData[readPosition:readPosition + 20].encode('hex')))
+            return
+        readPosition += 20
+        controlType = unpack('>I', data[readPosition:readPosition+4])
+        readPosition += 4
+        nickLength, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        nick = decryptedData[readPosition:readPosition + nickLength]
+        passLength, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        passphrase = decryptedData[readPosition:readPosition + passLength]
+        
+        joinPow = decryptedData[readPosition:readPosition+8] # ignore for now
+        
+        readPosition += 8
+        startOfSignature = readPosition
+        signatureLength, signatureLengthLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += signatureLengthLength
+        signature = decryptedData[
+            readPosition:readPosition + signatureLength]
+            
+        # check signature
+        signedData = data[8:headerEnd] + decryptedData[:startOfSignature]
+        if not highlevelcrypto.verify(signedData, signature, pubSigningKey.encode('hex')):
+            logger.debug('ECDSA verify failed')
+            return
+        logger.debug('ECDSA verify passed')
+        
+        # calculate the fromRipe.
+        sha = hashlib.new('sha512')
+        sha.update(pubSigningKey + pubEncryptionKey)
+        ripe = hashlib.new('ripemd160')
+        ripe.update(sha.digest())
+        fromAddress = encodeAddress(
+            sendersAddressVersionNumber, sendersStreamNumber, ripe.digest())
 
     # We have inserted a pubkey into our pubkey table which we received from a
     # pubkey, msg, or broadcast message. It might be one that we have been

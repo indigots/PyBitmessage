@@ -1145,16 +1145,17 @@ class singleWorker(threading.Thread):
         payload = ""
         payload += encodeVarint(chatSession.myAddressVersionNumber)
         payload += encodeVarint(chatSession.stream) # need to be on the same stream
-        payload += '\x00\x00\x00\x01'
+        payload += '\x00\x00\x00\x01' #Behaviour bitfield
+        
         privSigningKeyBase58 = shared.config.get(chatSession.myAddress, 'privsigningkey')
         privEncryptionKeyBase58 = shared.config.get(chatSession.myAddress, 'privencryptionkey')
         privSigningKeyHex = shared.decodeWalletImportFormat(privSigningKeyBase58).encode('hex')
         privEncryptionKeyHex = shared.decodeWalletImportFormat(privEncryptionKeyBase58).encode('hex')
-        
         pubSigningKey = highlevelcrypto.privToPub(privSigningKeyHex).decode('hex')
         pubEncryptionKey = highlevelcrypto.privToPub(privEncryptionKeyHex).decode('hex')
         payload += pubSigningKey[1:]
         payload += pubEncryptionKey[1:]
+        
         payload += encodeVarint(shared.config.getint(chatSession.myAddress, 'noncetrialsperbyte'))
         payload += encodeVarint(shared.config.getint(chatSession.myAddress, 'payloadlengthextrabytes'))
         payload += toRipe
@@ -1175,17 +1176,25 @@ class singleWorker(threading.Thread):
             payload += pack('>Q', nonce)
         else:
             payload += '\x00\x00\x00\x00\x00\x00\x00\x00'
+            
+        # create the object header
+        TTL = 5 * 60 # 5 mins
+        embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
+        header = pack('>Q', embeddedTime)
+        header += '\x00\x00\x1A\x04' # object type: chat control message (6660)
+        header += '\x00\x00\x00\x01' # version 1 of a control message
+        header += encodeVarint(chatSession.stream)
+        
+        # now sign
+        signature = highlevelcrypto.sign(header + payload, privSigningKeyHex)
+        payload += encodeVarint(len(signature))
+        payload += signature
         
         # now encrypt
         encrypted = highlevelcrypto.encrypt(payload,"04"+pubEncryptionKeyBase256.encode('hex'))
         
         # build the final message
-        TTL = 5 * 60 # 5 mins
-        embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
-        encryptedPayload = pack('>Q', embeddedTime)
-        encryptedPayload += '\x00\x00\x1A\x04' # object type: chat control message (6660)
-        encryptedPayload += '\x00\x00\x00\x01' # version 1 of a control message
-        encryptedPayload += encodeVarint(chatSession.stream) + encrypted
+        encryptedPayload = header + encrypted
         target = 2 ** 64 / (requiredAverageProofOfWorkNonceTrialsPerByte*(len(encryptedPayload) + 8 + requiredPayloadLengthExtraBytes + ((TTL*(len(encryptedPayload)+8+requiredPayloadLengthExtraBytes))/(2 ** 16))))
         initialHash = hashlib.sha512(encryptedPayload).digest()
         shared.UISignalQueue.put(('updateChatText', 'Doing proof of work for control message...'))
