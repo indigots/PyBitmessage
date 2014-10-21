@@ -637,9 +637,9 @@ def checkAndShareObjectWithPeers(data):
         elif intObjectType == 3:
             _checkAndShareBroadcastWithPeers(data)
             return 0.6
-        elif intObjectType == 6660:
-            _checkAndShareChatControlWithPeers(data)
-            return 0.6
+        #elif intObjectType == 6660:
+        #    _checkAndShareChatControlWithPeers(data)
+        #    return 0.6
         else:
             _checkAndShareUndefinedObjectWithPeers(data)
             return 0.6
@@ -682,6 +682,7 @@ def _checkAndShareUndefinedObjectWithPeers(data):
     broadcastToSendDataQueues((streamNumber, 'advertiseobject', inventoryHash))
     
 def _checkAndShareChatControlWithPeers(data):
+    logger.debug('CHAT ************ got a control message ***************')
     embeddedTime, = unpack('>Q', data[8:16])
     readPosition = 20 # bypass nonce, time, and object type
     streamNumber, streamNumberLength = decodeVarint(
