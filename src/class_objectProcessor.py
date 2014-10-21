@@ -984,9 +984,10 @@ class objectProcessor(threading.Thread):
             logger.debug('Time spent processing this interesting broadcast: %s' % (time.time() - messageProcessingStartTime,))
     
     def processchatcontrol(self, data):
-        if shared.chatSession is None or not shared.chatSession.hosting:
+        if shared.chatSession is None or not shared.chatSession.isHosting:
             logger.debug('Got chat message but we do not have a chat session or are not hosting.')
             return
+        shared.UISignalQueue.put(('updateChatText', 'Got chat control message checking it out...'))
         messageProcessingStartTime = time.time()
         shared.numberOfMessagesProcessed += 1
         shared.UISignalQueue.put((
@@ -1001,14 +1002,18 @@ class objectProcessor(threading.Thread):
         headerEnd = readPosition
         canDecrypt = False
         try:
+            shared.UISignalQueue.put(('updateChatText', 'Decrypting....'))
             decryptedData = shared.chatSession.hostAddressCryptor.decrypt(data[readPosition:])
             toRipe = shared.chatSession.hostAddressHash
             canDecrypt = True
         except Exception as err:
             pass
         if not canDecrypt:
+            shared.UISignalQueue.put(('updateChatText', 'Could not decrypt message!'))
             logger.debug('Chat control message was not bound for me.')
             return
+        shared.UISignalQueue.put(('updateChatText', 'Decrypted message.'))
+        readPosition = 0
         sendersAddressVersionNumber, sendersAddressVersionNumberLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
         readPosition += sendersAddressVersionNumberLength
@@ -1054,14 +1059,16 @@ class objectProcessor(threading.Thread):
             decryptedData[readPosition:readPosition + 10])
         readPosition += varintLength
         nick = decryptedData[readPosition:readPosition + nickLength]
+        readPosition += nickLength
         passLength, varintLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
         readPosition += varintLength
         passphrase = decryptedData[readPosition:readPosition + passLength]
+        readPosition += passLength
         
         joinPow = decryptedData[readPosition:readPosition+8] # ignore for now
-        
         readPosition += 8
+        
         startOfSignature = readPosition
         signatureLength, signatureLengthLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
@@ -1076,13 +1083,23 @@ class objectProcessor(threading.Thread):
             return
         logger.debug('ECDSA verify passed')
         
-        # calculate the fromRipe.
-        sha = hashlib.new('sha512')
-        sha.update(pubSigningKey + pubEncryptionKey)
-        ripe = hashlib.new('ripemd160')
-        ripe.update(sha.digest())
-        fromAddress = encodeAddress(
-            sendersAddressVersionNumber, sendersStreamNumber, ripe.digest())
+        # check passphrase
+        if passphrase != shared.chatSession.passphrase:
+            logger.debug('Join message passphrase did not match!')
+            return
+        else:
+            logger.debug('Join message passphrase matched!')
+        
+        shared.chatSession.addUser(
+            sendersAddressVersionNumber,
+            sendersStreamNumber,
+            behaviorBitfield,
+            pubSigningKey,
+            pubEncryptionKey,
+            requiredAverageProofOfWorkNonceTrialsPerByte,
+            requiredPayloadLengthExtraBytes,
+            nick)
+            
 
     # We have inserted a pubkey into our pubkey table which we received from a
     # pubkey, msg, or broadcast message. It might be one that we have been
