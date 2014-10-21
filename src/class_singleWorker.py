@@ -1182,7 +1182,8 @@ class singleWorker(threading.Thread):
         embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
         header = pack('>Q', embeddedTime)
         header += '\x00\x00\x1A\x04' # object type: chat control message (6660)
-        header += '\x00\x00\x00\x01' # version 1 of a control message
+        if int(time.time()) >= 1416175200: # Sun, 16 Nov 2014 22:00:00 GMT
+                encryptedPayload += encodeVarint(1) # control message version
         header += encodeVarint(chatSession.stream)
         
         # now sign

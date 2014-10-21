@@ -991,8 +991,11 @@ class objectProcessor(threading.Thread):
         shared.numberOfMessagesProcessed += 1
         shared.UISignalQueue.put((
             'updateNumberOfMessagesProcessed', 'no data'))
-        version = unpack('>I', data[20:24])
-        readPosition = 24 # bypass the nonce, time, and object type, version
+        readPosition = 20 # bypass the nonce, time, and object type, version
+        if int(time.time()) >= 1416175200: # Sun, 16 Nov 2014 22:00:00 GMT
+                version, versionLength = decodeVarint(
+                    data[readPosition:readPosition + 9])
+                readPosition += versionLength
         streamNumberAsClaimedByMsg, streamNumberAsClaimedByMsgLength = decodeVarint(
             data[readPosition:readPosition + 9])
         readPosition += streamNumberAsClaimedByMsgLength

@@ -637,6 +637,9 @@ def checkAndShareObjectWithPeers(data):
         elif intObjectType == 3:
             _checkAndShareBroadcastWithPeers(data)
             return 0.6
+        elif intObjectType == 6660:
+            _checkAndShareChatControlWithPeers(data)
+            return 0.6
         else:
             _checkAndShareUndefinedObjectWithPeers(data)
             return 0.6
@@ -678,6 +681,42 @@ def _checkAndShareUndefinedObjectWithPeers(data):
     logger.debug('advertising inv with hash: %s' % inventoryHash.encode('hex'))
     broadcastToSendDataQueues((streamNumber, 'advertiseobject', inventoryHash))
     
+def _checkAndShareChatControlWithPeers(data):
+    embeddedTime, = unpack('>Q', data[8:16])
+    readPosition = 20 # bypass nonce, time, and object type
+    streamNumber, streamNumberLength = decodeVarint(
+        data[readPosition:readPosition + 9])
+    if not streamNumber in streamsInWhichIAmParticipating:
+        logger.debug('The streamNumber %s isn\'t one we are interested in.' % streamNumber)
+        return
+    readPosition += streamNumberLength
+    inventoryHash = calculateInventoryHash(data)
+    shared.numberOfInventoryLookupsPerformed += 1
+    inventoryLock.acquire()
+    if inventoryHash in inventory:
+        logger.debug('We have already received this msg message. Ignoring.')
+        inventoryLock.release()
+        return
+    elif isInSqlInventory(inventoryHash):
+        logger.debug('We have already received this msg message (it is stored on disk in the SQL inventory). Ignoring it.')
+        inventoryLock.release()
+        return
+    # This msg message is valid. Let's let our peers know about it.
+    objectType = 6660
+    inventory[inventoryHash] = (
+        objectType, streamNumber, data, embeddedTime,'')
+    inventorySets[streamNumber].add(inventoryHash)
+    inventoryLock.release()
+    logger.debug('advertising inv with hash: %s' % inventoryHash.encode('hex'))
+    broadcastToSendDataQueues((streamNumber, 'advertiseobject', inventoryHash))
+
+    # Now let's enqueue it to be processed ourselves.
+    # If we already have too much data in the queue to be processed, just sleep for now.
+    while shared.objectProcessorQueueSize > 120000000:
+        time.sleep(2)
+    with shared.objectProcessorQueueSizeLock:
+        shared.objectProcessorQueueSize += len(data)
+        objectProcessorQueue.put((objectType,data))
     
 def _checkAndShareMsgWithPeers(data):
     embeddedTime, = unpack('>Q', data[8:16])
