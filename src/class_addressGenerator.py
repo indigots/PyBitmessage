@@ -291,4 +291,4 @@ def createThrowawayAddress(inVersion, inStream):
         pubSigningKey + pubEncryptionKey)
     ripe.update(sha.digest())
     print 'Generated  new throwaway address with ripe digest:', ripe.digest().encode('hex')
-    return encodeAddress(inVersion, inStream, ripe.digest()),privSigningKey,pubSigningKey,privEncryptionKey,pubEncryptionKey
+    return encodeAddress(inVersion, inStream, ripe.digest()),privSigningKey,pubSigningKey,privEncryptionKey,pubEncryptionKey,ripe.digest()

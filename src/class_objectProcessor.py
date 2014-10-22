@@ -1089,7 +1089,8 @@ class objectProcessor(threading.Thread):
             return
         else:
             logger.debug('Join message passphrase matched!')
-        
+            
+        defaultPermissions = '\x00\x00\x00\x01' # User has a voice only
         shared.chatSession.addUser(
             sendersAddressVersionNumber,
             sendersStreamNumber,
@@ -1098,7 +1099,8 @@ class objectProcessor(threading.Thread):
             pubEncryptionKey,
             requiredAverageProofOfWorkNonceTrialsPerByte,
             requiredPayloadLengthExtraBytes,
-            nick)
+            nick,
+            defaultPermissions)
             
 
     # We have inserted a pubkey into our pubkey table which we received from a

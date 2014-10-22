@@ -15,9 +15,11 @@ class chatSession (object):
         self.hostAddressVersionNumber = addressVersionNumber
         self.stream = streamNumber
         self.hostAddressHash = hash
+        shared.logger.debug('****************' + str(type(hash)) + '*********************')
         self.nick = 'newbie1'
         self.passphrase = ''
         self.usersInChannel = {}
+        self.subject = 'New Chat'
         if isHosting:
             if addressVersionNumber < 4:
                 logger.debug('Only v4+ addresses supported for chat.')
@@ -54,7 +56,8 @@ class chatSession (object):
                 self.hostAddressPubEncryptionKey,
                 self.hostAddressNonceTrials,
                 self.hostAddressExtraBytes,
-                self.nick)
+                self.nick,
+                '\x00\x00\x00\x07') # permissions, owner, moderator, voice
         else:
             self.myAddress = myAddress
             mystatus,myaddressVersionNumber,mystreamNumber,hash = decodeAddress(myAddress)
@@ -71,27 +74,34 @@ class chatSession (object):
             else:
                 shared.logger.error('Failed to create chat, could not find priv key and make decryptor.')
                 return
-            self.generateNewOpenAddress()
             shared.logger.debug('Joining existing chat at ' + inHostAddress + ' using my address ' + myAddress)
             self.sendJoinMessage()
 
     def generateNewOpenAddress(self):
-        self.openAddress,self.openAddressPrivSigningKey,self.openAddressPubSigningKey,self.openAddressPrivEncryptionKey,openAddressPubEncryptionKey = createThrowawayAddress(4, self.stream)
+        self.openAddress,self.openAddressPrivSigningKey,self.openAddressPubSigningKey,self.openAddressPrivEncryptionKey,self.openAddressPubEncryptionKey,self.openAddressHash = createThrowawayAddress(4, self.stream)
+        self.openAddressVersionNumber = 4
         shared.logger.debug('Open chat address returned ' + str(self.openAddress))
 
     def sendJoinMessage(self):
         shared.logger.debug('Creating join message to send to ' + self.hostAddress)
         shared.workerQueue.put(('joinChat', self))
         
-    def addUser(self,addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick):
+    def addUser(self,addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick,permissionBits):
         sha = hashlib.new('sha512')
         sha.update(signKey + encKey)
         ripe = hashlib.new('ripemd160')
         ripe.update(sha.digest())
         address = encodeAddress(
             addressVersion, stream, ripe.digest())
-        self.usersInChannel[ripe] = (addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick,address)
+        self.usersInChannel[ripe.digest()] = (addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick,address,permissionBits)
         shared.logger.debug('CHAT **** User joined using address: ' + address)
         shared.UISignalQueue.put(('updateChatText', 'User joined using address: ' + address))
         shared.UISignalQueue.put(('updateChatText', str(len(self.usersInChannel)) + ' users now in channel.'))
         shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
+        self.sendStatusMessage(ripe.digest())
+        
+    def sendStatusMessage(self, inRipe): # without ripe message is sent on open channel to everyone
+        shared.workerQueue.put(('chatStatus', (self, inRipe)))
+        
+    def getUserByRipe(self, inRipe):
+        return self.usersInChannel[inRipe]

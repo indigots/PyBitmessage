@@ -78,6 +78,8 @@ class singleWorker(threading.Thread):
                 self.sendOutOrStoreMyV4Pubkey(data)
             elif command == 'joinChat':
                 self.joinChat(data)
+            elif command == 'chatStatus':
+                self.sendChatStatus(data)
             else:
                 with shared.printLock:
                     sys.stderr.write(
@@ -1178,7 +1180,7 @@ class singleWorker(threading.Thread):
             payload += '\x00\x00\x00\x00\x00\x00\x00\x00'
             
         # create the object header
-        TTL = 5 * 60 # 5 mins
+        TTL = 2 * 60 # 2 mins
         embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
         header = pack('>Q', embeddedTime)
         header += '\x00\x00\x1A\x04' # object type: chat control message (6660)
@@ -1210,3 +1212,88 @@ class singleWorker(threading.Thread):
         shared.UISignalQueue.put(('updateChatText', 'Broadcasting inv for join control message: ' + inventoryHash.encode('hex')))
         shared.UISignalQueue.put(('updateChatText', 'Start: ' + encryptedPayload[:24].encode('hex')))
         shared.broadcastToSendDataQueues((toStreamNumber, 'advertiseobject', inventoryHash))
+        
+    def sendChatStatus(self, data):
+        chatSession,toRipe = data
+        
+        # add master address ripe
+        payload = chatSession.hostAddressHash
+        
+        # add ripe of destination, open channel or individual user
+        if toRipe is None:
+            payload += chatSession.openAddressHash
+        else:
+            logger.debug('****************' + str(type(toRipe)) + '*********************')
+            payload += toRipe
+        
+        # add details of the current open channel address
+        payload += encodeVarint(chatSession.openAddressVersionNumber)
+        payload += encodeVarint(chatSession.stream)
+        payload += '\x00\x00\x00\x01' #Behaviour bitfield
+        payload += chatSession.openAddressPubSigningKey[1:]
+        payload += chatSession.openAddressPubEncryptionKey[1:]
+        payload += encodeVarint(shared.networkDefaultProofOfWorkNonceTrialsPerByte)
+        payload += encodeVarint(shared.networkDefaultPayloadLengthExtraBytes)
+        payload += chatSession.openAddressPrivSigningKey
+        payload += chatSession.openAddressPrivEncryptionKey
+        
+        # add other channel details
+        payload += encodeVarint(len(chatSession.subject))
+        payload += chatSession.subject
+        payload += encodeVarint(len(chatSession.passphrase))
+        payload += chatSession.passphrase
+        
+        # add list of users
+        payload += encodeVarint(len(chatSession.usersInChannel))
+        for ripe in chatSession.usersInChannel:
+            addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick,address,permissionBits = chatSession.usersInChannel[ripe]
+            payload += encodeVarint(addressVersion)
+            payload += encodeVarint(stream)
+            payload += bitfield
+            payload += signKey[1:]
+            payload += encKey[1:]
+            payload += encodeVarint(trials)
+            payload += encodeVarint(extraBytes)
+            payload += encodeVarint(len(nick))
+            payload += nick
+            payload += permissionBits
+        
+        # build the object header
+        TTL = 2 * 60 # 2 mins
+        embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
+        header = pack('>Q', embeddedTime)
+        header += '\x00\x00\x1A\x05' # object type: chat control message (6661)
+        header += encodeVarint(1) # control message version
+        header += encodeVarint(chatSession.stream)
+        
+        # now sign
+        signature = highlevelcrypto.sign(header + payload, chatSession.hostAddressPrivSigningKey)
+        payload += encodeVarint(len(signature))
+        payload += signature
+        
+        # now encrypt
+        pubkey = chatSession.hostAddressPubEncryptionKey
+        if toRipe is not None: # this is going to an individual, grab their pub key
+            addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick,address,permissionBits = chatSession.usersInChannel[toRipe]
+            pubkey = encKey
+        encrypted = highlevelcrypto.encrypt(payload,pubkey.encode('hex'))
+        
+        # build the final message
+        encryptedPayload = header + encrypted
+        # always use default work, not going to accommodate others
+        target = 2 ** 64 / (shared.networkDefaultProofOfWorkNonceTrialsPerByte*(len(encryptedPayload) + 8 + shared.networkDefaultPayloadLengthExtraBytes + ((TTL*(len(encryptedPayload)+8+shared.networkDefaultPayloadLengthExtraBytes))/(2 ** 16))))
+        initialHash = hashlib.sha512(encryptedPayload).digest()
+        shared.UISignalQueue.put(('updateChatText', 'Doing proof of work for status message...'))
+        trialValue, nonce = proofofwork.run(target, initialHash)
+        encryptedPayload = pack('>Q', nonce) + encryptedPayload
+        
+        # send out
+        inventoryHash = calculateInventoryHash(encryptedPayload)
+        objectType = 6661
+        shared.inventory[inventoryHash] = (
+                objectType, chatSession.stream, encryptedPayload, embeddedTime, '')
+        shared.inventorySets[chatSession.stream].add(inventoryHash)
+        print 'Broadcasting inv for my chat status message:', inventoryHash.encode('hex')
+        shared.UISignalQueue.put(('updateChatText', 'Broadcasting inv for chat status message: ' + inventoryHash.encode('hex')))
+        shared.UISignalQueue.put(('updateChatText', 'Start: ' + encryptedPayload[:24].encode('hex')))
+        shared.broadcastToSendDataQueues((chatSession.stream, 'advertiseobject', inventoryHash))
