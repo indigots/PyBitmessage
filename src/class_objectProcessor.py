@@ -63,6 +63,8 @@ class objectProcessor(threading.Thread):
                     self.processbroadcast(data)
                 elif objectType == 6660: #chat control
                     self.processchatcontrol(data)
+                elif objectType == 6661: #chat status
+                    self.processchatstatus(data)
                 elif objectType == 'checkShutdownVariable': # is more of a command, not an object type. Is used to get this thread past the queue.get() so that it will check the shutdown variable.
                     pass
                 else:
@@ -1102,6 +1104,165 @@ class objectProcessor(threading.Thread):
             nick,
             defaultPermissions)
             
+    def processchatstatus(self, data):
+        if shared.chatSession is None or shared.chatSession.isHosting:
+            logger.debug('Got chat message but we do not have a chat session or we are the host and do not need this.')
+            return
+        shared.UISignalQueue.put(('updateChatText', 'Got chat control status checking it out...'))
+        messageProcessingStartTime = time.time()
+        shared.numberOfMessagesProcessed += 1
+        shared.UISignalQueue.put((
+            'updateNumberOfMessagesProcessed', 'no data'))
+        readPosition = 20 # bypass the nonce, time, and object type
+        version, versionLength = decodeVarint(
+            data[readPosition:readPosition + 9])
+        readPosition += versionLength
+        streamNumberAsClaimedByMsg, streamNumberAsClaimedByMsgLength = decodeVarint(
+            data[readPosition:readPosition + 9])
+        readPosition += streamNumberAsClaimedByMsgLength
+        headerEnd = readPosition
+        canDecrypt = False
+        toMyAddress = False
+        try:
+            shared.UISignalQueue.put(('updateChatText', 'Decrypting with my address....'))
+            decryptedData = shared.chatSession.myAddressCryptor.decrypt(data[readPosition:])
+            toRipe = shared.chatSession.myAddressHash
+            canDecrypt = True
+            toMyAddress = True
+        except Exception as err:
+            pass
+        if not canDecrypt and hasattr(shared.chatSession, 'openAddressCryptor') and shared.chatSession.openAddressCryptor is not None:
+            try:
+                shared.UISignalQueue.put(('updateChatText', 'Decrypting with open address....'))
+                decryptedData = shared.chatSession.openAddressCryptor.decrypt(data[readPosition:])
+                toRipe = shared.chatSession.myAddressHash
+                canDecrypt = True
+            except Exception as err:
+                pass
+            
+        if not canDecrypt:
+            shared.UISignalQueue.put(('updateChatText', 'Could not decrypt message!'))
+            logger.debug('Chat control message was not bound for me.')
+            return
+        if toMyAddress:
+            shared.UISignalQueue.put(('updateChatText', 'Decrypted message using my personal address in chat.'))
+        else:
+            shared.UISignalQueue.put(('updateChatText', 'Decrypted message using the open chat address.'))
+        
+        # handle ripes
+        readPosition = 0
+        hostRipe = decryptedData[readPosition:readPosition+20]
+        readPosition += 20
+        if hostRipe != shared.chatSession.hostAddressHash:
+            shared.UISignalQueue.put(('updateChatText', 'From ripe did not match the host address ripe.'))
+            return
+        
+        toRipe = decryptedData[readPosition:readPosition+20]
+        readPosition += 20
+        if toMyAddress and toRipe != shared.chatSession.myAddressHash:
+            shared.UISignalQueue.put(('updateChatText', 'Destination ripe did not match my address.'))
+            return
+        if not toMyAddress and toRipe != shared.chatSession.openAddressHash:
+            shared.UISignalQueue.put(('updateChatText', 'Destination ripe did not match open address.'))
+            return
+            
+        # handle open address
+        openAddressVerion, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        if openAddressVerion < 4:
+            logger.info('Open address version number %s not yet supported. Ignoring message.' % sendersAddressVersionNumber)  
+            return
+        openAddressStream, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        if openAddressStream == 0:
+            logger.info('sender\'s stream number is 0. Ignoring message.')
+            return
+        openAddressBitfield = decryptedData[readPosition:readPosition + 4]
+        readPosition += 4
+        openAddressPubSigningKey = '\x04' + decryptedData[
+            readPosition:readPosition + 64]
+        readPosition += 64
+        openAddressPubEncryptionKey = '\x04' + decryptedData[
+            readPosition:readPosition + 64]
+        readPosition += 64
+        openAddressTrials, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        openAddressExtraBytes, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        openAddressPrivSigningKey = decryptedData[readPosition:readPosition+32]
+        readPosition += 32
+        openAddressPrivEncryptionKey = decryptedData[readPosition:readPosition+32]
+        readPosition += 32
+        
+        # handle chat room info
+        subjectLength, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        subject = decryptedData[readPosition:readPosition+subjectLength]
+        readPosition += subjectLength
+        passLength, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        passphrase = decryptedData[readPosition:readPosition+passLength]
+        readPosition += passLength
+        
+        # handle user list
+        numUsers, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        users = {}
+        for i in range(numUsers):
+            # handle an address
+            version, varintLength = decodeVarint(
+                decryptedData[readPosition:readPosition + 10])
+            readPosition += varintLength
+            stream, varintLength = decodeVarint(
+                decryptedData[readPosition:readPosition + 10])
+            readPosition += varint
+            bitfield = decryptedData[readPosition:readPosition + 4]
+            readPosition += 4
+            pubSigningKey = '\x04' + decryptedData[
+                readPosition:readPosition + 64]
+            readPosition += 64
+            pubEncryptionKey = '\x04' + decryptedData[
+                readPosition:readPosition + 64]
+            readPosition += 64
+            trials, varintLength = decodeVarint(
+                decryptedData[readPosition:readPosition + 10])
+            readPosition += varintLength
+            extraBytes, varintLength = decodeVarint(
+                decryptedData[readPosition:readPosition + 10])
+            readPosition += varintLength
+            
+            # handle their additional info
+            nickLength, varintLength = decodeVarint(
+                decryptedData[readPosition:readPosition + 10])
+            readPosition += varintLength
+            nick = decryptedData[readPosition:readPosition+passLength]
+            readPosition += nickLength
+            permissionBits = decryptedData[readPosition:readPosition+4]
+            readPosition += 4
+            
+            # calc ripe
+            sha = hashlib.new('sha512')
+            sha.update(pubSigningKey + pubEncryptionKey)
+            ripe = hashlib.new('ripemd160')
+            ripe.update(sha.digest())
+            hash = ripe.digest()
+            
+            # add to list
+            users[hash] = (version,stream,bitfield,pubSigningKey,pubEncryptionKey,trials,extraBytes,nick,permissionBits)
+        
+        # check signature
+        signedData = data[8:headerEnd] + decryptedData[:readPosition]
+        if not highlevelcrypto.verify(signedData, signature, shared.chatSession.hostAddressPubSigningKey.encode('hex')):
+            logger.debug('ECDSA verify failed')
+            return
+        logger.debug('ECDSA verify passed')
 
     # We have inserted a pubkey into our pubkey table which we received from a
     # pubkey, msg, or broadcast message. It might be one that we have been

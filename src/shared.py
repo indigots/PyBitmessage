@@ -637,8 +637,8 @@ def checkAndShareObjectWithPeers(data):
         elif intObjectType == 3:
             _checkAndShareBroadcastWithPeers(data)
             return 0.6
-        elif intObjectType == 6660:
-            _checkAndShareChatControlWithPeers(data)
+        elif intObjectType >= 6660 and intObjectType <= 6662:
+            _checkAndShareChatMessageWithPeers((data,intObjectType))
             return 0.6
         else:
             _checkAndShareUndefinedObjectWithPeers(data)
@@ -681,8 +681,9 @@ def _checkAndShareUndefinedObjectWithPeers(data):
     logger.debug('advertising inv with hash: %s' % inventoryHash.encode('hex'))
     broadcastToSendDataQueues((streamNumber, 'advertiseobject', inventoryHash))
     
-def _checkAndShareChatControlWithPeers(data):
-    logger.debug('CHAT ************ got a control message ***************')
+def _checkAndShareChatMessageWithPeers(inTuple):
+    data,objectType = inTuple
+    logger.debug('CHAT ************ got a chat message ***************')
     embeddedTime, = unpack('>Q', data[8:16])
     readPosition = 20 # bypass nonce, time, and object type
     streamNumber, streamNumberLength = decodeVarint(
@@ -703,7 +704,6 @@ def _checkAndShareChatControlWithPeers(data):
         inventoryLock.release()
         return
     # This msg message is valid. Let's let our peers know about it.
-    objectType = 6660
     inventory[inventoryHash] = (
         objectType, streamNumber, data, embeddedTime,'')
     inventorySets[streamNumber].add(inventoryHash)

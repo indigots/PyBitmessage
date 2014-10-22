@@ -1132,6 +1132,7 @@ class singleWorker(threading.Thread):
         readPosition += streamNumberLength
         behaviorBitfield = pubkeyPayload[readPosition:readPosition + 4]
         readPosition += 4
+        pubSigningKeyBase256 = pubkeyPayload[readPosition:readPosition + 64]
         readPosition += 64
         pubEncryptionKeyBase256 = pubkeyPayload[readPosition:readPosition + 64]
         readPosition += 64
@@ -1194,6 +1195,10 @@ class singleWorker(threading.Thread):
         
         # now encrypt
         encrypted = highlevelcrypto.encrypt(payload,"04"+pubEncryptionKeyBase256.encode('hex'))
+        
+        # update chat with info about the host address
+        chatSession.hostAddressPubSigningKey = '\x04' + pubSigningKeyBase256
+        chatSession.hostAddressPubEncryptionKey = '\x04' + pubEncryptionKeyBase256
         
         # build the final message
         encryptedPayload = header + encrypted

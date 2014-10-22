@@ -20,6 +20,7 @@ class chatSession (object):
         self.passphrase = ''
         self.usersInChannel = {}
         self.subject = 'New Chat'
+        self.status = 'disconnected'
         if isHosting:
             if addressVersionNumber < 4:
                 logger.debug('Only v4+ addresses supported for chat.')
@@ -58,6 +59,7 @@ class chatSession (object):
                 self.hostAddressExtraBytes,
                 self.nick,
                 '\x00\x00\x00\x07') # permissions, owner, moderator, voice
+            self.status = 'hosting'
         else:
             self.myAddress = myAddress
             mystatus,myaddressVersionNumber,mystreamNumber,hash = decodeAddress(myAddress)
@@ -80,6 +82,12 @@ class chatSession (object):
     def generateNewOpenAddress(self):
         self.openAddress,self.openAddressPrivSigningKey,self.openAddressPubSigningKey,self.openAddressPrivEncryptionKey,self.openAddressPubEncryptionKey,self.openAddressHash = createThrowawayAddress(4, self.stream)
         self.openAddressVersionNumber = 4
+        self.openAddressCryptor = highlevelcrypto.makeCryptor(self.openAddressPrivEncryptionKey)
+        sha = hashlib.new('sha512')
+        sha.update(self.openAddressPubSigningKey + self.openAddressPubEncryptionKey)
+        ripe = hashlib.new('ripemd160')
+        ripe.update(sha.digest())
+        self.openAddressHash = ripe.digest()
         shared.logger.debug('Open chat address returned ' + str(self.openAddress))
 
     def sendJoinMessage(self):

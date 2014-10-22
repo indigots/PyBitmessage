@@ -2943,11 +2943,8 @@ class MyForm(QtGui.QMainWindow):
             self.ui.tabWidget.setCurrentIndex(4)
 
     def on_action_AddressBookJoinChat(self):
-        listOfSelectedRows = {}
-        for i in range(len(self.ui.tableWidgetAddressBook.selectedIndexes())):
-            listOfSelectedRows[self.ui.tableWidgetAddressBook.selectedIndexes()[i].row()] = 0
-        # Join just the first address for now
-        addressAtCurrentRow = str(self.ui.tableWidgetAddressBook.item(0,1).text())
+        currentRow = self.ui.tableWidgetAddressBook.currentRow()
+        addressAtCurrentRow = str(self.ui.tableWidgetAddressBook.item(currentRow, 1).text())
         # Just grab the selected personal identity for now
         currentRow = self.ui.tableWidgetYourIdentities.currentRow()
         indentityAddressAtCurrentRow = str(self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
