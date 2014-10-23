@@ -1105,7 +1105,7 @@ class objectProcessor(threading.Thread):
             defaultPermissions)
             
     def processchatstatus(self, data):
-        if not hasattr(shared, 'chatSession') and shared.chatSession is None or shared.chatSession.isHosting:
+        if not hasattr(shared, 'chatSession') or shared.chatSession is None or shared.chatSession.isHosting:
             logger.debug('Got chat message but we do not have a chat session or we are the host and do not need this.')
             return
         shared.UISignalQueue.put(('updateChatText', 'Got chat control status checking it out...'))
@@ -1261,8 +1261,12 @@ class objectProcessor(threading.Thread):
             ripe.update(sha.digest())
             hash = ripe.digest()
             
+            # calc address
+            address = encodeAddress(
+                version, stream, ripe.digest())
+            
             # add to list
-            users[hash] = (version,stream,bitfield,pubSigningKey,pubEncryptionKey,trials,extraBytes,nick,permissionBits)
+            users[hash] = (version,stream,bitfield,pubSigningKey,pubEncryptionKey,trials,extraBytes,nick,address,permissionBits)
         
         # extract signature
         endOfSigned = readPosition
