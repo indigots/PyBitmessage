@@ -1177,7 +1177,7 @@ class objectProcessor(threading.Thread):
             decryptedData[readPosition:readPosition + 10])
         readPosition += varintLength
         if openAddressStream == 0:
-            logger.info('sender\'s stream number is 0. Ignoring message.')
+            logger.info('open stream number is 0. Ignore.')
             return
         openAddressBitfield = decryptedData[readPosition:readPosition + 4]
         readPosition += 4
@@ -1193,9 +1193,9 @@ class objectProcessor(threading.Thread):
         openAddressExtraBytes, varintLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
         readPosition += varintLength
-        openAddressPrivSigningKey = decryptedData[readPosition:readPosition+32]
+        openAddressPrivSigningKey = decryptedData[readPosition:readPosition+32].encode('hex')
         readPosition += 32
-        openAddressPrivEncryptionKey = decryptedData[readPosition:readPosition+32]
+        openAddressPrivEncryptionKey = decryptedData[readPosition:readPosition+32].encode('hex')
         readPosition += 32
         
         # handle chat room info

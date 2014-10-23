@@ -1239,8 +1239,8 @@ class singleWorker(threading.Thread):
         payload += chatSession.openAddressPubEncryptionKey[1:]
         payload += encodeVarint(shared.networkDefaultProofOfWorkNonceTrialsPerByte)
         payload += encodeVarint(shared.networkDefaultPayloadLengthExtraBytes)
-        payload += chatSession.openAddressPrivSigningKey
-        payload += chatSession.openAddressPrivEncryptionKey
+        payload += chatSession.openAddressPrivSigningKey.decode('hex')
+        payload += chatSession.openAddressPrivEncryptionKey.decode('hex')
         
         # add other channel details
         payload += encodeVarint(len(chatSession.subject))
