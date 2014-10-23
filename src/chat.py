@@ -106,7 +106,7 @@ class chatSession (object):
         shared.logger.debug('CHAT **** User joined using address: ' + address)
         shared.UISignalQueue.put(('updateChatText', 'User joined using address: ' + address))
         shared.UISignalQueue.put(('updateChatText', str(len(self.usersInChannel)) + ' users now in channel.'))
-        shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
+        #shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
         self.sendStatusMessage(ripe.digest())
         
     def sendStatusMessage(self, inRipe): # without ripe message is sent on open channel to everyone
@@ -114,3 +114,11 @@ class chatSession (object):
         
     def getUserByRipe(self, inRipe):
         return self.usersInChannel[inRipe]
+    
+    def gotStatusUpdate(self, users, openAddressTuple, subject, passphrase):
+        self.usersInChannel = users
+        self.openAddressVersion,self.openAddressStream,self.openAddressBitfield,self.openAddressPubSigningKey,self.openAddressPrivSigningKey,self.openAddressPubEncryptionKey,self.openAddressPrivEncryptionKey,self.openAddressTrials,self.openAddressExtraBytes,self.openAddressHash = openAddressTuple
+        self.subject = subject
+        self.passphrase = passphrase
+        shared.UISignalQueue.put(('updateChatText', 'Got status update. ' + str(len(self.usersInChannel)) + ' users now in channel.'))
+        shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))

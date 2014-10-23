@@ -1105,7 +1105,7 @@ class objectProcessor(threading.Thread):
             defaultPermissions)
             
     def processchatstatus(self, data):
-        if shared.chatSession is None or shared.chatSession.isHosting:
+        if not hasattr(shared, 'chatSession') and shared.chatSession is None or shared.chatSession.isHosting:
             logger.debug('Got chat message but we do not have a chat session or we are the host and do not need this.')
             return
         shared.UISignalQueue.put(('updateChatText', 'Got chat control status checking it out...'))
@@ -1167,11 +1167,11 @@ class objectProcessor(threading.Thread):
             return
             
         # handle open address
-        openAddressVerion, varintLength = decodeVarint(
+        openAddressVersion, varintLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
         readPosition += varintLength
-        if openAddressVerion < 4:
-            logger.info('Open address version number %s not yet supported. Ignoring message.' % sendersAddressVersionNumber)  
+        if openAddressVersion < 4:
+            logger.info('Open address version number %s not yet supported. Ignoring message.' % openAddressVersion)  
             return
         openAddressStream, varintLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
@@ -1198,6 +1198,13 @@ class objectProcessor(threading.Thread):
         openAddressPrivEncryptionKey = decryptedData[readPosition:readPosition+32].encode('hex')
         readPosition += 32
         
+        # calc ripe
+        sha = hashlib.new('sha512')
+        sha.update(openAddressPubSigningKey + openAddressPubEncryptionKey)
+        ripe = hashlib.new('ripemd160')
+        ripe.update(sha.digest())
+        openAddressHash = ripe.digest()
+        
         # handle chat room info
         subjectLength, varintLength = decodeVarint(
             decryptedData[readPosition:readPosition + 10])
@@ -1222,7 +1229,7 @@ class objectProcessor(threading.Thread):
             readPosition += varintLength
             stream, varintLength = decodeVarint(
                 decryptedData[readPosition:readPosition + 10])
-            readPosition += varint
+            readPosition += varintLength
             bitfield = decryptedData[readPosition:readPosition + 4]
             readPosition += 4
             pubSigningKey = '\x04' + decryptedData[
@@ -1242,7 +1249,7 @@ class objectProcessor(threading.Thread):
             nickLength, varintLength = decodeVarint(
                 decryptedData[readPosition:readPosition + 10])
             readPosition += varintLength
-            nick = decryptedData[readPosition:readPosition+passLength]
+            nick = decryptedData[readPosition:readPosition+nickLength]
             readPosition += nickLength
             permissionBits = decryptedData[readPosition:readPosition+4]
             readPosition += 4
@@ -1257,12 +1264,34 @@ class objectProcessor(threading.Thread):
             # add to list
             users[hash] = (version,stream,bitfield,pubSigningKey,pubEncryptionKey,trials,extraBytes,nick,permissionBits)
         
+        # extract signature
+        endOfSigned = readPosition
+        signatureLength, signatureLengthLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += signatureLengthLength
+        signature = decryptedData[
+            readPosition:readPosition + signatureLength]
+        
         # check signature
-        signedData = data[8:headerEnd] + decryptedData[:readPosition]
+        signedData = data[8:headerEnd] + decryptedData[:endOfSigned]
         if not highlevelcrypto.verify(signedData, signature, shared.chatSession.hostAddressPubSigningKey.encode('hex')):
             logger.debug('ECDSA verify failed')
             return
         logger.debug('ECDSA verify passed')
+        
+        # update the chat session with all the new info
+        openAddress = (openAddressVersion,
+            openAddressStream,
+            openAddressBitfield,
+            openAddressPubSigningKey,
+            openAddressPrivSigningKey,
+            openAddressPubEncryptionKey,
+            openAddressPrivEncryptionKey,
+            openAddressTrials,
+            openAddressExtraBytes,
+            openAddressHash)
+        shared.chatSession.gotStatusUpdate(users, openAddress, subject, passphrase)
+            
 
     # We have inserted a pubkey into our pubkey table which we received from a
     # pubkey, msg, or broadcast message. It might be one that we have been
