@@ -108,6 +108,7 @@ class chatSession (object):
         shared.UISignalQueue.put(('updateChatText', str(len(self.usersInChannel)) + ' users now in channel.'))
         #shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
         self.sendStatusMessage(ripe.digest())
+        shared.UISignalQueue.put(('updateChatUsers', self.usersInChannel))
         
     def sendStatusMessage(self, inRipe): # without ripe message is sent on open channel to everyone
         shared.workerQueue.put(('chatStatus', (self, inRipe)))
@@ -122,3 +123,4 @@ class chatSession (object):
         self.passphrase = passphrase
         shared.UISignalQueue.put(('updateChatText', 'Got status update. ' + str(len(self.usersInChannel)) + ' users now in channel.'))
         shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
+        shared.UISignalQueue.put(('updateChatUsers', self.usersInChannel))

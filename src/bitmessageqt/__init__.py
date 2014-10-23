@@ -635,6 +635,8 @@ class MyForm(QtGui.QMainWindow):
             "displayAlert(PyQt_PyObject,PyQt_PyObject,PyQt_PyObject)"), self.displayAlert)
         QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
             "updateChatText(PyQt_PyObject)"), self.updateChatText)
+        QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
+            "updateChatUsers(PyQt_PyObject)"), self.updateChatUsers)
         self.UISignalThread.start()
 
         # Below this point, it would be good if all of the necessary global data
@@ -3376,6 +3378,20 @@ class MyForm(QtGui.QMainWindow):
         
     def updateChatText(self, data):
         self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + data)
+    
+    def updateChatUsers(self, data):
+        usersDict = data
+        self.ui.chatMembersList.clear()
+        for ripe in usersDict:
+            permissionBits = usersDict[ripe][9]
+            prefix = ''
+            if shared.isBitSetWithinBitfield(permissionBits, 29):
+                prefix = '@'
+            elif shared.isBitSetWithinBitfield(permissionBits, 30):
+                prefix = '%'
+            elif shared.isBitSetWithinBitfield(permissionBits, 31):
+                prefix = '+'
+            self.ui.chatMembersList.addItem(prefix + usersDict[ripe][7])
 
 
 class helpDialog(QtGui.QDialog):
@@ -3874,6 +3890,8 @@ class UISignaler(QThread):
                 self.emit(SIGNAL("displayAlert(PyQt_PyObject, PyQt_PyObject, PyQt_PyObject)"), title, text, exitAfterUserClicksOk)
             elif command == 'updateChatText':
                 self.emit(SIGNAL("updateChatText(PyQt_PyObject)"), data)
+            elif command == 'updateChatUsers':
+                self.emit(SIGNAL("updateChatUsers(PyQt_PyObject)"), data)
             else:
                 sys.stderr.write(
                     'Command sent to UISignaler not recognized: %s\n' % command)
