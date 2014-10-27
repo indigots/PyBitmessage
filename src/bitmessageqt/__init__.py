@@ -3398,9 +3398,10 @@ class MyForm(QtGui.QMainWindow):
             
     def chatTextOnReturn(self):
         #self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'enter pressed')
-        chatInput = self.ui.chatSendText.toPlainText()
+        chatInput = str(self.ui.chatSendText.toPlainText())
+        print chatInput
         self.ui.chatSendText.clear()
-        if not hasattr(shared, 'chatSession') or shared.chatSession is None or shared.chatSession.isHosting:
+        if not hasattr(shared, 'chatSession') or shared.chatSession is None:
             self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'No chat session.')
             return
         shared.chatSession.sendMessage(chatInput)

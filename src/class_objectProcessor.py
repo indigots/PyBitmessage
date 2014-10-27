@@ -65,6 +65,8 @@ class objectProcessor(threading.Thread):
                     self.processchatcontrol(data)
                 elif objectType == 6661: #chat status
                     self.processchatstatus(data)
+                elif objectType == 6662: #chat message
+                    self.processchatmessage(data)
                 elif objectType == 'checkShutdownVariable': # is more of a command, not an object type. Is used to get this thread past the queue.get() so that it will check the shutdown variable.
                     pass
                 else:
@@ -1126,7 +1128,7 @@ class objectProcessor(threading.Thread):
         try:
             shared.UISignalQueue.put(('updateChatText', 'Decrypting with my address....'))
             decryptedData = shared.chatSession.myAddressCryptor.decrypt(data[readPosition:])
-            toRipe = shared.chatSession.myAddressHash
+            decryptRipe = shared.chatSession.myAddressHash
             canDecrypt = True
             toMyAddress = True
         except Exception as err:
@@ -1135,7 +1137,7 @@ class objectProcessor(threading.Thread):
             try:
                 shared.UISignalQueue.put(('updateChatText', 'Decrypting with open address....'))
                 decryptedData = shared.chatSession.openAddressCryptor.decrypt(data[readPosition:])
-                toRipe = shared.chatSession.myAddressHash
+                decryptRipe = shared.chatSession.openAddressHash
                 canDecrypt = True
             except Exception as err:
                 pass
@@ -1299,7 +1301,85 @@ class objectProcessor(threading.Thread):
             openAddressExtraBytes,
             openAddressHash)
         shared.chatSession.gotStatusUpdate(sequence, users, openAddress, subject, passphrase)
+        
+    def processchatmessage(self, data):
+        if not hasattr(shared, 'chatSession') or shared.chatSession is None:
+            logger.debug('Got chat message but we do not have a chat session or we are the host and do not need this.')
+            return
+        shared.UISignalQueue.put(('updateChatText', 'Got chat message checking it out...'))
+        messageProcessingStartTime = time.time()
+        shared.numberOfMessagesProcessed += 1
+        shared.UISignalQueue.put((
+            'updateNumberOfMessagesProcessed', 'no data'))
+        readPosition = 20 # bypass the nonce, time, and object type
+        version, versionLength = decodeVarint(
+            data[readPosition:readPosition + 9])
+        readPosition += versionLength
+        streamNumberAsClaimedByMsg, streamNumberAsClaimedByMsgLength = decodeVarint(
+            data[readPosition:readPosition + 9])
+        readPosition += streamNumberAsClaimedByMsgLength
+        headerEnd = readPosition
+        if streamNumberAsClaimedByMsg != shared.chatSession.stream:
+            logger.debug('Got chat message but it was not in the same stream as ours.')
+            return
+        canDecrypt = False
+        try:
+            shared.UISignalQueue.put(('updateChatText', 'Decrypting with open address....'))
+            decryptedData = shared.chatSession.openAddressCryptor.decrypt(data[readPosition:])
+            decryptRipe = shared.chatSession.openAddressHash
+            canDecrypt = True
+        except Exception as err:
+            pass
+        if not canDecrypt:
+            shared.UISignalQueue.put(('updateChatText', 'Could not decrypt message!'))
+            logger.debug('Chat message was not bound for our chat.')
+            return
+        shared.UISignalQueue.put(('updateChatText', 'Decrypted chat message!'))
+        
+        # handle ripes
+        readPosition = 0
+        senderRipe = decryptedData[readPosition:readPosition+20]
+        readPosition += 20
+        destinationRipe = decryptedData[readPosition:readPosition+20]
+        readPosition += 20
+        
+        if destinationRipe != decryptRipe:
+            logger.debug('Chat message had wrong destination ripe.')
+            return
+        if senderRipe not in shared.chatSession.usersInChannel:
+            shared.UISignalQueue.put(('updateChatText', 'Chat message from unknown user, discarding.'))
+            logger.debug('Chat message from unknown user, discarding.')
+            return
+        
+        # handle type
+        messageType, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        
+        # handle message
+        messageLength, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
+        messageContent = decryptedData[readPosition:readPosition + messageLength]
+        readPosition += messageLength
+        
+        # handle signature
+        endOfSigned = readPosition
+        signatureLength, signatureLengthLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += signatureLengthLength
+        signature = decryptedData[
+            readPosition:readPosition + signatureLength]
             
+        # check signature
+        signedData = data[8:headerEnd] + decryptedData[:endOfSigned]
+        if not highlevelcrypto.verify(signedData, signature, shared.chatSession.usersInChannel[senderRipe].encode('hex')):
+            logger.debug('ECDSA verify failed')
+            return
+        logger.debug('ECDSA verify passed')
+        
+        # update session
+        shared.chatSession.gotMessage(senderRipe,messageType,messageContent)
 
     # We have inserted a pubkey into our pubkey table which we received from a
     # pubkey, msg, or broadcast message. It might be one that we have been

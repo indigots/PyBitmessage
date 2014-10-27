@@ -131,6 +131,24 @@ class chatSession (object):
         shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
         shared.UISignalQueue.put(('updateChatUsers', self.usersInChannel))
         
-    def sendMessage(message):
+    def sendMessage(self, message):
         shared.UISignalQueue.put(('updateChatText', 'Sending message: ' + message))
         shared.workerQueue.put(('chatMessage', (self, message)))
+        
+    def gotMessage(self, senderRipe, messageType, messageContent):
+        addressVersion,stream,bitfield,signKey,encKey,trials,extraBytes,nick,address,permissionBits = self.usersInChannel[senderRipe]
+        canSpeak = False
+        nickPrefix = ''
+        if shared.isBitSetWithinBitfield(permissionBits, 29):
+            canSpeak = True
+            nickPrefix = '@'
+        elif shared.isBitSetWithinBitfield(permissionBits, 30):
+            canSpeak = True
+            nickPrefix = '%'
+        elif shared.isBitSetWithinBitfield(permissionBits, 31):
+            canSpeak = True
+            nickPrefix = '+'
+        if not canSpeak:
+            logger.debug('Chat message is from a user without permission to talk! ignoring!')
+            return
+        shared.UISignalQueue.put(('updateChatText', '<' + nickPrefix + nick + '> ' + messageContent))
