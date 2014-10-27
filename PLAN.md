@@ -69,6 +69,7 @@ Bitmessage Moderated Chat
 * Standard encrypted message
 * Unencrypted message data:
   * Ripe address of the master address it is coming from
+  * varint sequence number, always incrementing, ignore statuses with lower numbers
   * Ripe of the personal address it is going to
   * address_version of open address
   * stream of open address

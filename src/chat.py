@@ -21,6 +21,7 @@ class chatSession (object):
         self.usersInChannel = {}
         self.subject = 'New Chat'
         self.status = 'disconnected'
+        self.sequence = 0
         if isHosting:
             if addressVersionNumber < 4:
                 logger.debug('Only v4+ addresses supported for chat.')
@@ -111,12 +112,17 @@ class chatSession (object):
         shared.UISignalQueue.put(('updateChatUsers', self.usersInChannel))
         
     def sendStatusMessage(self, inRipe): # without ripe message is sent on open channel to everyone
+        self.sequence++
         shared.workerQueue.put(('chatStatus', (self, inRipe)))
         
     def getUserByRipe(self, inRipe):
         return self.usersInChannel[inRipe]
     
-    def gotStatusUpdate(self, users, openAddressTuple, subject, passphrase):
+    def gotStatusUpdate(self, newSequence, users, openAddressTuple, subject, passphrase):
+        if newSequence <= self.sequence:
+            shared.logger.error('Sequence in status is old, current: ' + self.sequence + ' this: ' + newSequence)
+            return
+        self.sequence = newSequence
         self.usersInChannel = users
         self.openAddressVersion,self.openAddressStream,self.openAddressBitfield,self.openAddressPubSigningKey,self.openAddressPrivSigningKey,self.openAddressPubEncryptionKey,self.openAddressPrivEncryptionKey,self.openAddressTrials,self.openAddressExtraBytes,self.openAddressHash = openAddressTuple
         self.subject = subject

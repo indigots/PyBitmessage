@@ -1223,6 +1223,7 @@ class singleWorker(threading.Thread):
         
         # add master address ripe
         payload = chatSession.hostAddressHash
+        payload += encodeVarint(chatSession.sequence)
         
         # add ripe of destination, open channel or individual user
         if toRipe is None:

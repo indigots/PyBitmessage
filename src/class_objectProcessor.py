@@ -1149,13 +1149,17 @@ class objectProcessor(threading.Thread):
         else:
             shared.UISignalQueue.put(('updateChatText', 'Decrypted message using the open chat address.'))
         
-        # handle ripes
+        # handle ripes and sequence number
         readPosition = 0
         hostRipe = decryptedData[readPosition:readPosition+20]
         readPosition += 20
         if hostRipe != shared.chatSession.hostAddressHash:
             shared.UISignalQueue.put(('updateChatText', 'From ripe did not match the host address ripe.'))
             return
+            
+        sequence, varintLength = decodeVarint(
+            decryptedData[readPosition:readPosition + 10])
+        readPosition += varintLength
         
         toRipe = decryptedData[readPosition:readPosition+20]
         readPosition += 20
@@ -1294,7 +1298,7 @@ class objectProcessor(threading.Thread):
             openAddressTrials,
             openAddressExtraBytes,
             openAddressHash)
-        shared.chatSession.gotStatusUpdate(users, openAddress, subject, passphrase)
+        shared.chatSession.gotStatusUpdate(sequence, users, openAddress, subject, passphrase)
             
 
     # We have inserted a pubkey into our pubkey table which we received from a
