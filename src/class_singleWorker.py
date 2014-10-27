@@ -80,6 +80,8 @@ class singleWorker(threading.Thread):
                 self.joinChat(data)
             elif command == 'chatStatus':
                 self.sendChatStatus(data)
+            elif command == 'chatMessage':
+                self.sendChatMessage(data)
             else:
                 with shared.printLock:
                     sys.stderr.write(
@@ -1140,7 +1142,14 @@ class singleWorker(threading.Thread):
         readPosition += varintLength
         requiredPayloadLengthExtraBytes, varintLength = decodeVarint(pubkeyPayload[readPosition:readPosition + 10])
         readPosition += varintLength
-
+        
+        # update chat session with info on host address
+        chatSession.stream = streamNumber
+        chatSession.hostAddressBitfield = behaviorBitfield
+        chatSession.hostAddressPubSigningKey = pubSigningKeyBase256.encode('hex')
+        chatSession.hostAddressPubEncryptionKey = pubEncryptionKeyBase256.encode('hex')
+        chatSession.hostAddressNonceTrials = requiredAverageProofOfWorkNonceTrialsPerByte
+        chatSession.hostAddressExtraBytes = requiredPayloadLengthExtraBytes
         
         logger.debug('Have the pubkey for this address.' + pubEncryptionKeyBase256.encode('hex'))
         
@@ -1302,4 +1311,51 @@ class singleWorker(threading.Thread):
         print 'Broadcasting inv for my chat status message:', inventoryHash.encode('hex')
         shared.UISignalQueue.put(('updateChatText', 'Broadcasting inv for chat status message: ' + inventoryHash.encode('hex')))
         shared.UISignalQueue.put(('updateChatText', 'Start: ' + encryptedPayload[:24].encode('hex')))
+        shared.broadcastToSendDataQueues((chatSession.stream, 'advertiseobject', inventoryHash))
+        
+    def sendChatMessage(self, data):
+        chatSession,message = data
+        
+        # build the message
+        payload = chatSession.myAddressHash
+        payload += chatSession.openAddressHash
+        payload += encodeVarint(1)
+        payload += encodeVarint(len(message))
+        payload += message
+        
+        # build the header
+        TTL = 2 * 60 # 2 mins
+        embeddedTime = int(time.time() + random.randrange(-300, 300) + TTL)
+        header = pack('>Q', embeddedTime)
+        header += '\x00\x00\x1A\x06' # object type: chat message (6662)
+        header += encodeVarint(1) # chat message version
+        header += encodeVarint(chatSession.stream)
+        
+        # now sign
+        signature = highlevelcrypto.sign(header + payload, chatSession.openAddressPrivSigningKey)
+        payload += encodeVarint(len(signature))
+        payload += signature
+        
+        # now encrypt
+        pubkey = chatSession.openAddressPubEncryptionKey
+        encrypted = highlevelcrypto.encrypt(payload,pubkey.encode('hex'))
+        
+        # build the final message
+        encryptedPayload = header + encrypted
+        # use host address for pow settings
+        target = 2 ** 64 / (chatSession.hostAddressNonceTrials*(len(encryptedPayload) + 8 + chatSession.hostAddressExtraBytes + ((TTL*(len(encryptedPayload)+8+chatSession.hostAddressExtraBytes))/(2 ** 16))))
+        initialHash = hashlib.sha512(encryptedPayload).digest()
+        shared.UISignalQueue.put(('updateChatText', 'Doing proof of work for status message...'))
+        trialValue, nonce = proofofwork.run(target, initialHash)
+        encryptedPayload = pack('>Q', nonce) + encryptedPayload
+        
+        # send out
+        inventoryHash = calculateInventoryHash(encryptedPayload)
+        objectType = 6662
+        shared.inventory[inventoryHash] = (
+                objectType, chatSession.stream, encryptedPayload, embeddedTime, '')
+        shared.inventorySets[chatSession.stream].add(inventoryHash)
+        print 'Broadcasting inv for my chat message:', inventoryHash.encode('hex')
+        shared.UISignalQueue.put(('updateChatText', 'Broadcasting inv for chat message: ' + inventoryHash.encode('hex')))
+        #shared.UISignalQueue.put(('updateChatText', 'Start: ' + encryptedPayload[:24].encode('hex')))
         shared.broadcastToSendDataQueues((chatSession.stream, 'advertiseobject', inventoryHash))

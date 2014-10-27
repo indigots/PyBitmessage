@@ -658,6 +658,9 @@ class MyForm(QtGui.QMainWindow):
         except:
             print 'There was a problem testing for a Namecoin daemon. Hiding the Fetch Namecoin ID button'
             self.ui.pushButtonFetchNamecoinID.hide()
+            
+        # Setup chat tab specific hooks
+        self.initChat()
 
 
     # Show or hide the application window after clicking an item within the
@@ -3392,6 +3395,29 @@ class MyForm(QtGui.QMainWindow):
             elif shared.isBitSetWithinBitfield(permissionBits, 31):
                 prefix = '+'
             self.ui.chatMembersList.addItem(prefix + usersDict[ripe][7])
+            
+    def chatTextOnReturn(self):
+        #self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'enter pressed')
+        chatInput = self.ui.chatSendText.toPlainText()
+        self.ui.chatSendText.clear()
+        if not hasattr(shared, 'chatSession') or shared.chatSession is None or shared.chatSession.isHosting:
+            self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'No chat session.')
+            return
+        shared.chatSession.sendMessage(chatInput)
+        
+    def initChat(self):
+        #QtCore.QObject.connect(self.ui.chatSendText, QtCore.SIGNAL("textChanged(QString)"), self.chatTextOnReturn)
+        self.ui.chatSendText.installEventFilter(self)
+        
+    def eventFilter(self, widget, event):
+        if (event.type() == QtCore.QEvent.KeyPress and widget is self.ui.chatSendText):
+            if event.modifiers() != Qt.AltModifier and int(event.modifiers()) != Qt.KeypadModifier+Qt.AltModifier: #check for alt or numpad + alt
+                if event.key() == QtCore.Qt.Key_Return or event.key() == QtCore.Qt.Key_Enter:
+                    # send the text to chat instead of adding a newline
+                    self.chatTextOnReturn()
+                    return True
+        return QtGui.QWidget.eventFilter(self, widget, event)
+
 
 
 class helpDialog(QtGui.QDialog):
