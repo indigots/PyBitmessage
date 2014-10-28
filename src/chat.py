@@ -82,7 +82,7 @@ class chatSession (object):
 
     def generateNewOpenAddress(self):
         self.openAddress,self.openAddressPrivSigningKey,self.openAddressPubSigningKey,self.openAddressPrivEncryptionKey,self.openAddressPubEncryptionKey,self.openAddressHash = createThrowawayAddress(4, self.stream)
-        self.openAddressVersionNumber = 4
+        self.openAddressVersion = 4
         shared.logger.debug('open key' + self.openAddressPrivEncryptionKey)
         self.openAddressCryptor = highlevelcrypto.makeCryptor(self.openAddressPrivEncryptionKey)
         sha = hashlib.new('sha512')

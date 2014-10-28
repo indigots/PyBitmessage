@@ -1242,7 +1242,7 @@ class singleWorker(threading.Thread):
             payload += toRipe
         
         # add details of the current open channel address
-        payload += encodeVarint(chatSession.openAddressVersionNumber)
+        payload += encodeVarint(chatSession.openAddressVersion)
         payload += encodeVarint(chatSession.stream)
         payload += '\x00\x00\x00\x01' #Behaviour bitfield
         payload += chatSession.openAddressPubSigningKey[1:]
