@@ -156,10 +156,10 @@ class chatSession (object):
         shared.UISignalQueue.put(('updateChatText', '<' + nickPrefix + nick + '> ' + messageContent))
         
     def showOpenAddressInfo(self):
-        output = 'ver: ' % self.openAddressVersion
-        output += ' signpub: ' % self.openAddressPubSigningKey
-        output += ' encpup: ' % self.openAddressPubEncryptionKey
-        output += ' signpriv: ' % self.openAddressPrivSigningKey
-        output += ' encpriv: ' % self.openAddressPrivEncryptionKey
-        output += ' ripehash: ' % self.openAddressHash
+        output = 'ver: ' + str(self.openAddressVersion)
+        output += ' signpub: ' + self.openAddressPubSigningKey.encode('hex')
+        output += ' encpup: ' + str(self.openAddressPubEncryptionKey).encode('hex')
+        output += ' signpriv: ' + self.openAddressPrivSigningKey
+        output += ' encpriv: ' + self.openAddressPrivEncryptionKey
+        output += ' ripehash: ' + self.openAddressHash.encode('hex')
         shared.UISignalQueue.put(('updateChatText', 'Open address info: ' + output))
