@@ -91,6 +91,7 @@ class chatSession (object):
         ripe.update(sha.digest())
         self.openAddressHash = ripe.digest()
         shared.logger.debug('Open chat address returned ' + str(self.openAddress))
+        self.showOpenAddressInfo()
 
     def sendJoinMessage(self):
         shared.logger.debug('Creating join message to send to ' + self.hostAddress)
@@ -130,6 +131,7 @@ class chatSession (object):
         shared.UISignalQueue.put(('updateChatText', 'Got status update. ' + str(len(self.usersInChannel)) + ' users now in channel.'))
         shared.UISignalQueue.put(('updateChatText', str(self.usersInChannel)))
         shared.UISignalQueue.put(('updateChatUsers', self.usersInChannel))
+        self.showOpenAddressInfo()
         
     def sendMessage(self, message):
         shared.UISignalQueue.put(('updateChatText', 'Sending message: ' + message))
@@ -152,3 +154,12 @@ class chatSession (object):
             logger.debug('Chat message is from a user without permission to talk! ignoring!')
             return
         shared.UISignalQueue.put(('updateChatText', '<' + nickPrefix + nick + '> ' + messageContent))
+        
+    def showOpenAddressInfo(self):
+        output = 'ver: ' % self.openAddressVersion
+        output += ' signpub: ' % self.openAddressPubSigningKey
+        output += ' encpup: ' % self.openAddressPubEncryptionKey
+        output += ' signpriv: ' % self.openAddressPrivSigningKey
+        output += ' encpriv: ' % self.openAddressPrivEncryptionKey
+        output += ' ripehash: ' % self.openAddressHash
+        shared.UISignalQueue.put(('updateChatText', 'Open address info: ' + output))

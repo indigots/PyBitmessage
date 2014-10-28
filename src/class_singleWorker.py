@@ -1282,7 +1282,7 @@ class singleWorker(threading.Thread):
         header += encodeVarint(chatSession.stream)
         
         # now sign
-        signature = highlevelcrypto.sign(header + payload, chatSession.hostAddressPrivSigningKey)
+        signature = highlevelcrypto.sign(header + payload, chatSession.hostAddressPrivSigningKey.encode('hex'))
         payload += encodeVarint(len(signature))
         payload += signature
         
