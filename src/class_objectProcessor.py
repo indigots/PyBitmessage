@@ -988,7 +988,7 @@ class objectProcessor(threading.Thread):
             logger.debug('Time spent processing this interesting broadcast: %s' % (time.time() - messageProcessingStartTime,))
     
     def processchatcontrol(self, data):
-        if shared.chatSession is None or not shared.chatSession.isHosting:
+        if not hasattr(shared, 'chatSession') or not shared.chatSession.isHosting:
             logger.debug('Got chat message but we do not have a chat session or are not hosting.')
             return
         shared.UISignalQueue.put(('updateChatText', 'Got chat control message checking it out...'))
