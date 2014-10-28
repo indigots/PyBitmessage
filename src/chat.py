@@ -77,6 +77,8 @@ class chatSession (object):
             else:
                 shared.logger.error('Failed to create chat, could not find priv key and make decryptor.')
                 return
+            self.myAddressPrivSigningKey = shared.decodeWalletImportFormat(
+                shared.config.get(myAddress, 'privsigningkey')).encode('hex')
             shared.logger.debug('Joining existing chat at ' + inHostAddress + ' using my address ' + myAddress)
             self.sendJoinMessage()
 
@@ -126,6 +128,7 @@ class chatSession (object):
         self.sequence = newSequence
         self.usersInChannel = users
         self.openAddressVersion,self.openAddressStream,self.openAddressBitfield,self.openAddressPubSigningKey,self.openAddressPrivSigningKey,self.openAddressPubEncryptionKey,self.openAddressPrivEncryptionKey,self.openAddressTrials,self.openAddressExtraBytes,self.openAddressHash = openAddressTuple
+        self.openAddressCryptor = highlevelcrypto.makeCryptor(self.openAddressPrivEncryptionKey)
         self.subject = subject
         self.passphrase = passphrase
         shared.UISignalQueue.put(('updateChatText', 'Got status update. ' + str(len(self.usersInChannel)) + ' users now in channel.'))
@@ -158,7 +161,7 @@ class chatSession (object):
     def showOpenAddressInfo(self):
         output = 'ver: ' + str(self.openAddressVersion)
         output += ' signpub: ' + self.openAddressPubSigningKey.encode('hex')
-        output += ' encpup: ' + str(self.openAddressPubEncryptionKey).encode('hex')
+        output += ' encpup: ' + self.openAddressPubEncryptionKey.encode('hex')
         output += ' signpriv: ' + self.openAddressPrivSigningKey
         output += ' encpriv: ' + self.openAddressPrivEncryptionKey
         output += ' ripehash: ' + self.openAddressHash.encode('hex')
