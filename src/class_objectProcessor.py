@@ -1373,7 +1373,8 @@ class objectProcessor(threading.Thread):
             
         # check signature
         signedData = data[8:headerEnd] + decryptedData[:endOfSigned]
-        if not highlevelcrypto.verify(signedData, signature, shared.chatSession.usersInChannel[senderRipe].encode('hex')):
+        senderAddressVersion,senderStream,senderBitfield,senderSignKey,senderEncKey,senderTrials,senderExtraBytes,senderNick,senderAddress,senderPermissionBits = shared.chatSession.usersInChannel[senderRipe]
+        if not highlevelcrypto.verify(signedData, signature, senderSignKey.encode('hex')):
             logger.debug('ECDSA verify failed')
             return
         logger.debug('ECDSA verify passed')

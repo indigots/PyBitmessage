@@ -1317,7 +1317,10 @@ class singleWorker(threading.Thread):
         chatSession,message = data
         
         # build the message
-        payload = chatSession.myAddressHash
+        if not chatSession.isHosting:
+            payload = chatSession.myAddressHash
+        else:
+            payload = chatSession.hostAddressHash
         payload += chatSession.openAddressHash
         payload += encodeVarint(1)
         payload += encodeVarint(len(message))
