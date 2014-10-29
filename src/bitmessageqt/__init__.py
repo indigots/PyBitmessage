@@ -15,6 +15,7 @@ from addaddressdialog import *
 from newsubscriptiondialog import *
 from regenerateaddresses import *
 from newchandialog import *
+from joinchatdialog import *
 from specialaddressbehavior import *
 from settings import *
 from about import *
@@ -2951,10 +2952,20 @@ class MyForm(QtGui.QMainWindow):
         currentRow = self.ui.tableWidgetAddressBook.currentRow()
         addressAtCurrentRow = str(self.ui.tableWidgetAddressBook.item(currentRow, 1).text())
         # Just grab the selected personal identity for now
-        currentRow = self.ui.tableWidgetYourIdentities.currentRow()
-        indentityAddressAtCurrentRow = str(self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
+        #currentRow = self.ui.tableWidgetYourIdentities.currentRow()
+        #indentityAddressAtCurrentRow = str(self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
         print 'UI joining chat at address:', addressAtCurrentRow
-        shared.joinChat(addressAtCurrentRow, indentityAddressAtCurrentRow)
+        
+        self.joinChatDialogInstance = JoinChatDialog(self)
+        print 'dialog made'
+        if self.joinChatDialogInstance.exec_():
+            nick = str(self.joinChatDialogInstance.ui.nickLine.text().toUtf8())
+            passphrase = str(self.joinChatDialogInstance.ui.passLine.text().toUtf8())
+            myAddress = str(self.joinChatDialogInstance.ui.joinAddressCombo.currentText().toUtf8())
+            print 'address was: ' + myAddress
+            shared.joinChat(addressAtCurrentRow, myAddress, nick, passphrase)
+        else:
+            print 'join chat dialog box rejected'
 
     def on_context_menuAddressBook(self, point):
         self.popMenuAddressBook.exec_(
@@ -3806,6 +3817,19 @@ class NewSubscriptionDialog(QtGui.QDialog):
                     self.ui.checkBoxDisplayMessagesAlreadyInInventory.setText(
                         _translate("MainWindow", "Display the %1 recent broadcasts from this address.").arg(str(len(queryreturn))))
 
+class JoinChatDialog(QtGui.QDialog):
+
+    def __init__(self, parent):
+        QtGui.QWidget.__init__(self, parent)
+        self.ui = Ui_JoinChatDialog()
+        self.ui.setupUi(self)
+        self.parent = parent
+        row = 1
+        while self.parent.ui.tableWidgetYourIdentities.item(row - 1, 1):
+            self.ui.joinAddressCombo.addItem(
+                self.parent.ui.tableWidgetYourIdentities.item(row - 1, 1).text())
+            row += 1
+        QtGui.QWidget.resize(self, QtGui.QWidget.sizeHint(self))
 
 class NewAddressDialog(QtGui.QDialog):
 

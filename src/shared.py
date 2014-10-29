@@ -902,9 +902,9 @@ def _checkAndShareBroadcastWithPeers(data):
         objectProcessorQueue.put((objectType,data))
 
 def createChat(inAddress):
-    shared.chatSession = chat.chatSession(inAddress, True, "")
+    shared.chatSession = chat.chatSession(inAddress, True, "", 'host', '')
 
-def joinChat(inHostAddress, inPersonalAddress):
-    shared.chatSession = chat.chatSession(inHostAddress, False, inPersonalAddress)
+def joinChat(inHostAddress, inPersonalAddress, nick, passphrase):
+    shared.chatSession = chat.chatSession(inHostAddress, False, inPersonalAddress, nick, passphrase)
 
 from debug import logger

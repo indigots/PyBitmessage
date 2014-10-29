@@ -8,7 +8,7 @@ class chatSession (object):
     hostAddress = None
     openAddress = None
 
-    def __init__ (self, inHostAddress, isHosting, myAddress):
+    def __init__ (self, inHostAddress, isHosting, myAddress, nick, passphrase):
         self.hostAddress = inHostAddress
         self.isHosting = isHosting
         status,addressVersionNumber,streamNumber,hash = decodeAddress(inHostAddress)
@@ -16,8 +16,8 @@ class chatSession (object):
         self.stream = streamNumber
         self.hostAddressHash = hash
         shared.logger.debug('****************' + str(type(hash)) + '*********************')
-        self.nick = 'newbie1'
-        self.passphrase = ''
+        self.nick = nick
+        self.passphrase = passphrase
         self.usersInChannel = {}
         self.subject = 'New Chat'
         self.status = 'disconnected'
