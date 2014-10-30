@@ -3405,6 +3405,7 @@ class MyForm(QtGui.QMainWindow):
         
     def updateChatText(self, data):
         self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + data)
+        self.ui.chatText.moveCursor(QtGui.QTextCursor.End)
     
     def updateChatUsers(self, data):
         usersDict = data
@@ -3432,6 +3433,7 @@ class MyForm(QtGui.QMainWindow):
         self.ui.chatSendLine.setText(QString(""))
         if not hasattr(shared, 'chatSession') or shared.chatSession is None:
             self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'No chat session.')
+            self.ui.chatText.moveCursor(QtGui.QTextCursor.End)
             return
         shared.chatSession.sendMessage(chatInput)
         
