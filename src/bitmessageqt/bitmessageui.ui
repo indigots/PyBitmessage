@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>888</width>
-    <height>553</height>
+    <width>874</width>
+    <height>567</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -1075,65 +1075,78 @@ p, li { white-space: pre-wrap; }
        <attribute name="title">
         <string>Chat</string>
        </attribute>
-       <widget class="QTextEdit" name="chatText">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>30</y>
-          <width>691</width>
-          <height>401</height>
-         </rect>
-        </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-       <widget class="QTextEdit" name="chatSendText">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>440</y>
-          <width>811</width>
-          <height>31</height>
-         </rect>
-        </property>
-       </widget>
-       <widget class="QPushButton" name="sendChatButton">
-        <property name="geometry">
-         <rect>
-          <x>824</x>
-          <y>440</y>
-          <width>51</width>
-          <height>26</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Send</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="chatSubjectLabel">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>10</y>
-          <width>681</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Chat Subject</string>
-        </property>
-       </widget>
-       <widget class="QListWidget" name="chatMembersList">
-        <property name="geometry">
-         <rect>
-          <x>710</x>
-          <y>30</y>
-          <width>171</width>
-          <height>401</height>
-         </rect>
-        </property>
-       </widget>
+       <layout class="QGridLayout" name="gridLayout_8">
+        <item row="1" column="1">
+         <widget class="QListWidget" name="chatMembersList">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>100</width>
+            <height>0</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="0">
+         <widget class="QLabel" name="chatSubjectLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Chat Subject</string>
+          </property>
+          <property name="margin">
+           <number>6</number>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="0">
+         <widget class="QTextEdit" name="chatText">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="readOnly">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="0">
+         <widget class="QLineEdit" name="chatSendLine"/>
+        </item>
+        <item row="0" column="1">
+         <widget class="QLabel" name="chatStatusLabel">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="text">
+           <string>Status: no session</string>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </widget>
     </item>
@@ -1144,7 +1157,7 @@ p, li { white-space: pre-wrap; }
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>888</width>
+     <width>874</width>
      <height>25</height>
     </rect>
    </property>

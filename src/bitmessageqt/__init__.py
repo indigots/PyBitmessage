@@ -639,6 +639,10 @@ class MyForm(QtGui.QMainWindow):
             "updateChatText(PyQt_PyObject)"), self.updateChatText)
         QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
             "updateChatUsers(PyQt_PyObject)"), self.updateChatUsers)
+        QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
+            "updateChatSubject(PyQt_PyObject)"), self.updateChatSubject)
+        QtCore.QObject.connect(self.UISignalThread, QtCore.SIGNAL(
+            "updateChatStatus(PyQt_PyObject)"), self.updateChatStatus)
         self.UISignalThread.start()
 
         # Below this point, it would be good if all of the necessary global data
@@ -3143,8 +3147,8 @@ class MyForm(QtGui.QMainWindow):
         if self.createChatDialogInstance.exec_():
             nick = str(self.createChatDialogInstance.ui.nickLine.text().toUtf8())
             passphrase = str(self.createChatDialogInstance.ui.passLine.text().toUtf8())
-            myAddress = str(self.createChatDialogInstance.ui.subjectLine.text().toUtf8())
-            shared.createChat(addressAtCurrentRow, nick, passphrase)
+            subject = str(self.createChatDialogInstance.ui.subjectLine.text().toUtf8())
+            shared.createChat(addressAtCurrentRow, nick, passphrase, subject)
         else:
             print 'create chat dialog box rejected'
 
@@ -3415,29 +3419,34 @@ class MyForm(QtGui.QMainWindow):
             elif shared.isBitSetWithinBitfield(permissionBits, 31):
                 prefix = '+'
             self.ui.chatMembersList.addItem(prefix + usersDict[ripe][7])
+    
+    def updateChatSubject(self, data):
+        self.ui.chatSubjectLabel.setText(data)
+        
+    def updateChatStatus(self, data):
+        self.ui.chatStatusLabel.setText(data)
             
     def chatTextOnReturn(self):
         #self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'enter pressed')
-        chatInput = str(self.ui.chatSendText.toPlainText())
-        print chatInput
-        self.ui.chatSendText.clear()
+        chatInput = self.ui.chatSendLine.text().toUtf8().data()
+        self.ui.chatSendLine.setText(QString(""))
         if not hasattr(shared, 'chatSession') or shared.chatSession is None:
             self.ui.chatText.setText(self.ui.chatText.toPlainText() + '\n' + 'No chat session.')
             return
         shared.chatSession.sendMessage(chatInput)
         
     def initChat(self):
-        #QtCore.QObject.connect(self.ui.chatSendText, QtCore.SIGNAL("textChanged(QString)"), self.chatTextOnReturn)
-        self.ui.chatSendText.installEventFilter(self)
+        QtCore.QObject.connect(self.ui.chatSendLine, QtCore.SIGNAL(
+            "returnPressed()"), self.chatTextOnReturn)
         
-    def eventFilter(self, widget, event):
-        if (event.type() == QtCore.QEvent.KeyPress and widget is self.ui.chatSendText):
-            if event.modifiers() != Qt.AltModifier and int(event.modifiers()) != Qt.KeypadModifier+Qt.AltModifier: #check for alt or numpad + alt
-                if event.key() == QtCore.Qt.Key_Return or event.key() == QtCore.Qt.Key_Enter:
-                    # send the text to chat instead of adding a newline
-                    self.chatTextOnReturn()
-                    return True
-        return QtGui.QWidget.eventFilter(self, widget, event)
+    #def eventFilter(self, widget, event):
+    #    if (event.type() == QtCore.QEvent.KeyPress and widget is self.ui.chatSendText):
+    #        if event.modifiers() != Qt.AltModifier and int(event.modifiers()) != Qt.KeypadModifier+Qt.AltModifier: #check for alt or numpad + alt
+    #            if event.key() == QtCore.Qt.Key_Return or event.key() == QtCore.Qt.Key_Enter:
+    #                # send the text to chat instead of adding a newline
+    #                self.chatTextOnReturn()
+    #                return True
+    #    return QtGui.QWidget.eventFilter(self, widget, event)
 
 
 
@@ -3961,6 +3970,10 @@ class UISignaler(QThread):
                 self.emit(SIGNAL("updateChatText(PyQt_PyObject)"), data)
             elif command == 'updateChatUsers':
                 self.emit(SIGNAL("updateChatUsers(PyQt_PyObject)"), data)
+            elif command == 'updateChatSubject':
+                self.emit(SIGNAL("updateChatSubject(PyQt_PyObject)"), data)
+            elif command == 'updateChatStatus':
+                self.emit(SIGNAL("updateChatStatus(PyQt_PyObject)"), data)
             else:
                 sys.stderr.write(
                     'Command sent to UISignaler not recognized: %s\n' % command)
