@@ -16,6 +16,7 @@ from newsubscriptiondialog import *
 from regenerateaddresses import *
 from newchandialog import *
 from joinchatdialog import *
+from createchatdialog import *
 from specialaddressbehavior import *
 from settings import *
 from about import *
@@ -3137,7 +3138,15 @@ class MyForm(QtGui.QMainWindow):
         addressAtCurrentRow = str(
             self.ui.tableWidgetYourIdentities.item(currentRow, 1).text())
         print "Creating chan at address: " + addressAtCurrentRow
-        shared.createChat(addressAtCurrentRow)
+        self.createChatDialogInstance = CreateChatDialog(self)
+        print 'create chat dialog made'
+        if self.createChatDialogInstance.exec_():
+            nick = str(self.createChatDialogInstance.ui.nickLine.text().toUtf8())
+            passphrase = str(self.createChatDialogInstance.ui.passLine.text().toUtf8())
+            myAddress = str(self.createChatDialogInstance.ui.subjectLine.text().toUtf8())
+            shared.createChat(addressAtCurrentRow, nick, passphrase)
+        else:
+            print 'create chat dialog box rejected'
 
     def on_action_YourIdentitiesClipboard(self):
         currentRow = self.ui.tableWidgetYourIdentities.currentRow()
@@ -3829,6 +3838,15 @@ class JoinChatDialog(QtGui.QDialog):
             self.ui.joinAddressCombo.addItem(
                 self.parent.ui.tableWidgetYourIdentities.item(row - 1, 1).text())
             row += 1
+        QtGui.QWidget.resize(self, QtGui.QWidget.sizeHint(self))
+        
+class CreateChatDialog(QtGui.QDialog):
+
+    def __init__(self, parent):
+        QtGui.QWidget.__init__(self, parent)
+        self.ui = Ui_CreateChatDialog()
+        self.ui.setupUi(self)
+        self.parent = parent
         QtGui.QWidget.resize(self, QtGui.QWidget.sizeHint(self))
 
 class NewAddressDialog(QtGui.QDialog):

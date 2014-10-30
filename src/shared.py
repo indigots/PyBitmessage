@@ -901,8 +901,8 @@ def _checkAndShareBroadcastWithPeers(data):
         shared.objectProcessorQueueSize += len(data)
         objectProcessorQueue.put((objectType,data))
 
-def createChat(inAddress):
-    shared.chatSession = chat.chatSession(inAddress, True, "", 'host', '')
+def createChat(inAddress, nick, passphrase):
+    shared.chatSession = chat.chatSession(inAddress, True, "", nick, passphrase)
 
 def joinChat(inHostAddress, inPersonalAddress, nick, passphrase):
     shared.chatSession = chat.chatSession(inHostAddress, False, inPersonalAddress, nick, passphrase)
